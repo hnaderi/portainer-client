@@ -18,25 +18,71 @@ package dev.hnaderi.portainer
 
 import cats.effect._
 import cats.implicits._
-import com.monovore.decline._
+import org.http4s.Uri
 
-object Main extends IOApp {
+import java.net.URI
 
-  val userOpt =
-    Opts
-      .option[String]("target", help = "Person to greet.")
-      .withDefault("world")
-
-  val quietOpt = Opts.flag("quiet", help = "Whether to be quiet.").orFalse
-
-  val a = userOpt product quietOpt
-
-  val pctl = Command("portainer cli", "header")(a)
-
-  override def run(args: List[String]): IO[ExitCode] =
-    pctl.parse(args) match {
-      case Left(value) => IO.println(value.toString).as(ExitCode.Error)
-      case Right(_)    => IO.println("Ok!").as(ExitCode.Success)
+object Main extends Platform {
+  private def handle[O](config: Config, req: PortainerRequest[O])(
+      run: O => IO[Unit]
+  ): IO[Unit] =
+    config.server match {
+      case ServerConfig.Inline(address, token) =>
+        if (config.print)
+          IO.fromEither(Uri.fromString(address.toString()))
+            .map(PortainerClient.printer(_, PortainerCredential.Token(token)))
+            .map(req.call)
+            .map(_.toString())
+            .flatMap(IO.println)
+        else
+          client.use(http =>
+            IO.fromEither(Uri.fromString(address.toString()))
+              .map(PortainerClient(_, http, PortainerCredential.Login(token)))
+              .flatMap(req.call)
+              .flatMap(run)
+          )
+      case ServerConfig.Session(name) =>
+        IO.print(name)
     }
 
+  import CLICommand._
+
+  override def run(args: List[String]): IO[ExitCode] =
+    CliArgs.pctl.parse(args) match {
+      case Left(value) => IO.println(value.toString).as(ExitCode.Error)
+      case Right((a, config)) =>
+        (a match {
+          case External(model) =>
+            model match {
+              case e: Models.Stack.Get =>
+                handle(config, e)(IO.println)
+              case e: Models.Endpoint.Get =>
+                handle(config, e)(IO.println)
+            }
+          case Login(server, username, password) =>
+            IO.println(server + username + password)
+          case Logout(server) =>
+            IO.println(server)
+        }).as(ExitCode.Success)
+    }
+
+}
+
+final case class Config(
+    print: Boolean = false,
+    server: ServerConfig
+)
+
+sealed trait ServerConfig extends Serializable with Product
+object ServerConfig {
+  final case class Inline(address: URI, token: String) extends ServerConfig
+  final case class Session(name: String) extends ServerConfig
+}
+
+sealed trait CLICommand extends Serializable with Product
+object CLICommand {
+  final case class External(model: Models) extends CLICommand
+  final case class Login(server: String, username: String, password: String)
+      extends CLICommand
+  final case class Logout(server: String) extends CLICommand
 }

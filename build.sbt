@@ -50,11 +50,17 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
       "com.monovore" %%% "decline" % "2.4.1"
     )
   )
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      "org.http4s" %%% "http4s-ember-client" % http4sVersion
+    ),
+  )
   .nativeSettings(
     libraryDependencies ++= Seq(
       "org.http4s" %%% "http4s-curl" % "0.1.1"
     ),
-    nativeConfig ~= { _.withGC(GC.none).withLTO(LTO.thin) }
+    nativeConfig ~= { _.withGC(GC.none)// .withLTO(LTO.thin).withMode(Mode.releaseFull)
+    }
   )
 
 lazy val docs = project.in(file("site")).enablePlugins(TypelevelSitePlugin)
