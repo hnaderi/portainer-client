@@ -18,11 +18,14 @@ package dev.hnaderi.portainer
 
 import cats.effect._
 import cats.implicits._
+import io.circe._
 import org.http4s.Uri
 
 import java.net.URI
 
 object Main extends Platform {
+  private val session = LocalSessionManager(".portainerrc")
+
   private def handle[O](config: Config, req: PortainerRequest[O])(
       run: O => IO[Unit]
   ): IO[Unit] =
@@ -46,10 +49,11 @@ object Main extends Platform {
     }
 
   import CLICommand._
-
   override def run(args: List[String]): IO[ExitCode] =
     CliArgs.pctl.parse(args) match {
-      case Left(value) => IO.println(value.toString).as(ExitCode.Error)
+      case Left(help) =>
+        IO.println(help.toString)
+          .as(if (help.errors.isEmpty) ExitCode.Success else ExitCode.Error)
       case Right((a, config)) =>
         (a match {
           case External(model) =>
@@ -60,9 +64,17 @@ object Main extends Platform {
                 handle(config, e)(IO.println)
             }
           case Login(server, username, password) =>
-            IO.println(server + username + password)
+            password
+              .fold(readPassword)(IO(_))
+              .flatMap(pass => IO.println(s"""
+server: $server
+username: $username
+password: $pass
+"""))
           case Logout(server) =>
-            IO.println(server)
+            session.load.flatMap(s =>
+              session.save(s.copy(servers = s.servers - server))
+            )
         }).as(ExitCode.Success)
     }
 
@@ -73,6 +85,17 @@ final case class Config(
     server: ServerConfig
 )
 
+final case class Sessions(
+    servers: Map[String, String]
+)
+object Sessions {
+  import io.circe.syntax._
+  implicit val encoder: Encoder[Sessions] =
+    Encoder.instance(s => Json.obj("servers" -> s.servers.asJson))
+  implicit val decoder: Decoder[Sessions] = (c: HCursor) =>
+    c.downField("servers").as[Map[String, String]].map(Sessions(_))
+}
+
 sealed trait ServerConfig extends Serializable with Product
 object ServerConfig {
   final case class Inline(address: URI, token: String) extends ServerConfig
@@ -82,7 +105,10 @@ object ServerConfig {
 sealed trait CLICommand extends Serializable with Product
 object CLICommand {
   final case class External(model: Models) extends CLICommand
-  final case class Login(server: String, username: String, password: String)
-      extends CLICommand
+  final case class Login(
+      server: String,
+      username: String,
+      password: Option[String]
+  ) extends CLICommand
   final case class Logout(server: String) extends CLICommand
 }

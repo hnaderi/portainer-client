@@ -17,15 +17,8 @@
 package dev.hnaderi.portainer
 
 import cats.effect.IO
-import cats.effect.IOApp
-import cats.effect.Resource
-import org.http4s.client.Client
-import org.http4s.ember.client.EmberClientBuilder
 
-abstract class Platform extends IOApp {
-  protected def client: Resource[IO, Client[IO]] =
-    EmberClientBuilder.default[IO].build
-
-  protected def readPassword: IO[String] =
-    IO.interruptible(new String(System.console().readPassword("password: ")))
+trait SessionManager {
+  def load: IO[Sessions]
+  def save(sessions: Sessions): IO[Unit]
 }

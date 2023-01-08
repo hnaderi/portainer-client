@@ -22,6 +22,22 @@ import com.monovore.decline._
 import java.net.URI
 
 object CliArgs {
+  private val login =
+    Command("login", "login to server and adds it to sessions")(
+      (
+        Opts.option[String]("name", "server name to add", "n"),
+        Opts.option[String]("username", "username to login to server", "u"),
+        Opts.option[String]("password", "password to use for login", "p").orNone
+      ).mapN(CLICommand.Login(_, _, _))
+    )
+
+  private val logout =
+    Command("logout", "removes server from logged in sessions")(
+      Opts
+        .argument[String]("session name")
+        .map(CLICommand.Logout(_))
+    )
+
   private val stacks =
     Command("stack", "stack related actions")(
       Opts(CLICommand.External(Models.Stack.Get()))
@@ -46,6 +62,6 @@ object CliArgs {
 
   val pctl: Command[(CLICommand, Config)] =
     Command("portainer", "portainer client")(
-      Opts.subcommands(stacks, endpoints).product(globalOptions)
+      Opts.subcommands(login, logout, stacks, endpoints).product(globalOptions)
     )
 }
