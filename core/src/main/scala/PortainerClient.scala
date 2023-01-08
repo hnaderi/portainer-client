@@ -21,6 +21,7 @@ import io.circe.Decoder
 import io.circe.Encoder
 import io.circe.syntax._
 import org.http4s._
+import org.http4s.headers.Accept
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 
@@ -44,7 +45,7 @@ object PortainerClient {
 
   def printer[F[_]](
       base: Uri,
-      cred: PortainerCredential
+      cred: PortainerCredential = PortainerCredential.Public
   ): PortainerClient[Printed[F, *]] =
     new PortainerClient[Printed[F, *]] with Http4sClientDsl[F] {
 
@@ -53,7 +54,7 @@ object PortainerClient {
           method: Method,
           body: I
       ): Printed[F, O] = Printed(
-        Request(method, uri(base)).withHeaders(cred.toHeader),
+        method(uri(base)).andHeader(cred.toHeader),
         Some(body.asJson)
       )
 
@@ -61,7 +62,7 @@ object PortainerClient {
           uri: Uri => Uri,
           method: Method
       ): Printed[F, O] = Printed(
-        Request(method, uri(base)).withHeaders(cred.toHeader),
+        method(uri(base)).andHeader(cred.toHeader),
         None
       )
 
@@ -70,7 +71,7 @@ object PortainerClient {
   def apply[F[_]: Concurrent](
       base: Uri,
       client: Client[F],
-      cred: PortainerCredential
+      cred: PortainerCredential = PortainerCredential.Public
   ): PortainerClient[F] =
     new PortainerClient[F] with Http4sClientDsl[F] {
       import org.http4s.circe.CirceEntityCodec._
@@ -80,18 +81,27 @@ object PortainerClient {
           method: Method,
           body: I
       ): F[O] = client.expect(
-        method(body = body, uri = uri(base))
-          .withHeaders(cred.toHeader)
+        method(body = body, uri = uri(base)).andHeader(cred.toHeader)
       )
 
       override def send[O: Decoder](
           uri: Uri => Uri,
           method: Method
       ): F[O] = client.expect(
-        method(uri = uri(base)).withHeaders(cred.toHeader)
+        method(uri = uri(base)).andHeader(cred.toHeader)
       )
 
     }
+
+  private implicit class RichRequestHeaders[F[_]](val request: Request[F])
+      extends AnyVal {
+    def andHeader(headers: Header.ToRaw*): Request[F] =
+      request.withHeaders(
+        request.headers ++ Headers(headers: _*).add(
+          Accept(MediaType.application.json)
+        )
+      )
+  }
 }
 
 sealed trait PortainerCredential extends Serializable with Product {
@@ -106,4 +116,8 @@ object PortainerCredential {
   final case class Token(value: String) extends PortainerCredential {
     override def toHeader: Headers = Headers("x-api-key" -> value)
   }
+  case object Public extends PortainerCredential {
+    override def toHeader: Headers = Headers.empty
+  }
+
 }

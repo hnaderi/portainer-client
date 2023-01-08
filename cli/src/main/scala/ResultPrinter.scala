@@ -16,10 +16,18 @@
 
 package dev.hnaderi.portainer
 
-import cats.effect.{IO, IOApp}
+import io.circe.Json
 
-object Main extends IOApp.Simple {
+import models._
 
-  def run: IO[Unit] =
-    IO.println("Hello sbt-typelevel!")
+trait ResultPrinter[O] {
+  def print(o: O): String
+}
+
+object ResultPrinter {
+  implicit def apply[O](implicit rp: ResultPrinter[O]): ResultPrinter[O] = rp
+
+  implicit val jsonPrinter: ResultPrinter[Json] = _.noSpaces
+  implicit val stackPrinter: ResultPrinter[Stack] = _ => ""
+  implicit val endpointPrinter: ResultPrinter[Endpoint] = _ => ""
 }

@@ -16,11 +16,19 @@
 
 package dev.hnaderi.portainer
 
-import cats.effect.IO
+import java.net.URI
 
-trait SessionManager {
-  def load: IO[Sessions]
-  def save(sessions: Sessions): IO[Unit]
-  def add(name: String, session: Session): IO[Unit]
-  def get(name: String): IO[Option[Session]]
+sealed trait CLICommand extends Serializable with Product
+object CLICommand {
+  final case class External(request: Requests, server: ServerConfig)
+      extends CLICommand
+  final case class Login(
+      server: String,
+      address: URI,
+      username: String,
+      password: Option[String]
+  ) extends CLICommand
+  final case class Logout(server: String) extends CLICommand
 }
+
+final case class CLIOptions(command: CLICommand, print: Boolean = false)

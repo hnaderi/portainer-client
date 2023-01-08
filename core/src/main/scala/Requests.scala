@@ -16,15 +16,28 @@
 
 package dev.hnaderi.portainer
 
-import io.circe.Decoder
+import org.http4s.Method
 
-sealed trait Models extends Serializable with Product
-object Models {
-  final case class Endpoint()
+import models._
+import io.circe.Json
+
+sealed trait Requests extends Serializable with Product
+object Requests {
+  final case class Login(username: String, password: String)
+      extends PortainerRequest[LoginToken] {
+    override def call[F[_]](client: PortainerClient[F]): F[LoginToken] =
+      client.send(
+        _ / "auth",
+        Method.POST,
+        Map(
+          "username" -> username,
+          "password" -> password
+        )
+      )
+  }
+
   object Endpoint {
-    implicit val decoder: Decoder[Endpoint] = Decoder.const(Endpoint())
-
-    final case class Get() extends PortainerRequest[Endpoint] with Models {
+    final case class Get() extends PortainerRequest[Endpoint] with Requests {
       override def call[F[_]](client: PortainerClient[F]): F[Endpoint] =
         client.get(_ / "endpoints" / "id")()
     }
@@ -35,24 +48,15 @@ object Models {
 
   }
 
-  final case class EndpointGroup()
   object EndpointGroup {
-    implicit val decoder: Decoder[EndpointGroup] =
-      Decoder.const(EndpointGroup())
-
-    final case class Get() extends PortainerRequest[EndpointGroup] {
-
-      override def call[F[_]](client: PortainerClient[F]): F[EndpointGroup] =
-        client.get(_ / "endpoints_groups" / "id")()
-
+    final case class Get(id: String) extends PortainerRequest[Json] {
+      override def call[F[_]](client: PortainerClient[F]): F[Json] =
+        client.get(_ / "endpoints_groups" / id)()
     }
 
   }
 
-  final case class Registry()
   object Registry {
-    implicit val decoder: Decoder[Registry] = Decoder.const(Registry())
-
     final case class Get() extends PortainerRequest[Registry] {
 
       override def call[F[_]](client: PortainerClient[F]): F[Registry] =
@@ -62,20 +66,18 @@ object Models {
 
   }
 
-  final case class Stack()
   object Stack {
-    implicit val decoder: Decoder[Stack] = Decoder.const(Stack())
-
-    final case class Get() extends PortainerRequest[Stack] with Models {
-      override def call[F[_]](client: PortainerClient[F]): F[Stack] =
-        client.get(_ / "stacks" / "id")()
+    final case class Get(id: String)
+        extends PortainerRequest[Json]
+        with Requests {
+      override def call[F[_]](client: PortainerClient[F]): F[Json] =
+        client.get(_ / "stacks" / id)()
     }
-    final case class Listing() extends PortainerRequest[List[Stack]] {
-
-      override def call[F[_]](client: PortainerClient[F]): F[List[Stack]] =
+    final case class Listing() extends PortainerRequest[Json] with Requests {
+      override def call[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "stacks")()
-
     }
 
   }
+
 }

@@ -18,7 +18,6 @@ package dev.hnaderi.portainer
 
 import cats.effect._
 import cats.implicits._
-import io.circe._
 import org.http4s.Uri
 
 import java.net.URI
@@ -26,26 +25,49 @@ import java.net.URI
 object Main extends Platform {
   private val session = LocalSessionManager(".portainerrc")
 
-  private def handle[O](config: Config, req: PortainerRequest[O])(
-      run: O => IO[Unit]
+  private def toUri(address: URI) =
+    IO.fromEither(Uri.fromString(address.toString()))
+
+  private def printResult[O: ResultPrinter](o: O) =
+    IO.println(ResultPrinter[O].print(o))
+
+  private def handle[O: ResultPrinter](
+      server: ServerConfig,
+      isPrint: Boolean,
+      req: PortainerRequest[O]
   ): IO[Unit] =
-    config.server match {
+    server match {
       case ServerConfig.Inline(address, token) =>
-        if (config.print)
-          IO.fromEither(Uri.fromString(address.toString()))
+        if (isPrint)
+          toUri(address)
             .map(PortainerClient.printer(_, PortainerCredential.Token(token)))
             .map(req.call)
             .map(_.toString())
             .flatMap(IO.println)
         else
           client.use(http =>
-            IO.fromEither(Uri.fromString(address.toString()))
+            toUri(address)
               .map(PortainerClient(_, http, PortainerCredential.Login(token)))
               .flatMap(req.call)
-              .flatMap(run)
+              .flatMap(printResult(_))
           )
       case ServerConfig.Session(name) =>
-        IO.print(name)
+        for {
+          s <- session.get(name)
+          ses <- IO.fromOption(s)( // TODO better experience
+            new Exception("Unknown server")
+          )
+          cred = PortainerCredential.Login(ses.token)
+          address <- toUri(ses.address)
+          _ <-
+            if (isPrint)
+              IO.println(req.call(PortainerClient.printer(address, cred)))
+            else
+              client
+                .map(PortainerClient(address, _, cred))
+                .use(req.call)
+                .flatMap(printResult(_))
+        } yield ()
     }
 
   import CLICommand._
@@ -54,23 +76,33 @@ object Main extends Platform {
       case Left(help) =>
         IO.println(help.toString)
           .as(if (help.errors.isEmpty) ExitCode.Success else ExitCode.Error)
-      case Right((a, config)) =>
+      case Right(CLIOptions(a, isPrint)) =>
         (a match {
-          case External(model) =>
-            model match {
-              case e: Models.Stack.Get =>
-                handle(config, e)(IO.println)
-              case e: Models.Endpoint.Get =>
-                handle(config, e)(IO.println)
+          case External(request, server) =>
+            request match {
+              case e: Requests.Stack.Get =>
+                handle(server, isPrint, e)
+              case e: Requests.Endpoint.Get =>
+                handle(server, isPrint, e)
+              case e: Requests.Stack.Listing =>
+                handle(server, isPrint, e)
             }
-          case Login(server, username, password) =>
-            password
-              .fold(readPassword)(IO(_))
-              .flatMap(pass => IO.println(s"""
-server: $server
-username: $username
-password: $pass
-"""))
+          case Login(server, address, username, password) =>
+            for {
+              pass <- password.fold(readPassword)(IO(_))
+              uri <- toUri(address)
+              req = Requests.Login(username, pass)
+              _ <-
+                if (isPrint)
+                  IO.println(req.call(PortainerClient.printer(uri)))
+                else
+                  client
+                    .map(PortainerClient(uri, _))
+                    .use(req.call)
+                    .flatMap(token =>
+                      session.add(server, Session(address, token.jwt))
+                    ) >> IO.println("Logged in successfully!")
+            } yield ()
           case Logout(server) =>
             session.load.flatMap(s =>
               session.save(s.copy(servers = s.servers - server))
@@ -78,37 +110,4 @@ password: $pass
         }).as(ExitCode.Success)
     }
 
-}
-
-final case class Config(
-    print: Boolean = false,
-    server: ServerConfig
-)
-
-final case class Sessions(
-    servers: Map[String, String]
-)
-object Sessions {
-  import io.circe.syntax._
-  implicit val encoder: Encoder[Sessions] =
-    Encoder.instance(s => Json.obj("servers" -> s.servers.asJson))
-  implicit val decoder: Decoder[Sessions] = (c: HCursor) =>
-    c.downField("servers").as[Map[String, String]].map(Sessions(_))
-}
-
-sealed trait ServerConfig extends Serializable with Product
-object ServerConfig {
-  final case class Inline(address: URI, token: String) extends ServerConfig
-  final case class Session(name: String) extends ServerConfig
-}
-
-sealed trait CLICommand extends Serializable with Product
-object CLICommand {
-  final case class External(model: Models) extends CLICommand
-  final case class Login(
-      server: String,
-      username: String,
-      password: Option[String]
-  ) extends CLICommand
-  final case class Logout(server: String) extends CLICommand
 }

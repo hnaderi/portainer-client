@@ -43,11 +43,19 @@ final case class LocalSessionManager(path: String) extends SessionManager {
 
   def save(sessions: Sessions): IO[Unit] =
     IO {
+      if (Files.exists(portainerRc)) {
+        Files.delete(portainerRc)
+      }
       Files.write(
         portainerRc,
         sessions.asJson.noSpaces.getBytes(),
-        StandardOpenOption.CREATE
+        StandardOpenOption.CREATE_NEW
       )
       ()
     }
+
+  def add(name: String, session: Session): IO[Unit] =
+    load.map(s => Sessions(s.servers.updated(name, session))).flatMap(save)
+
+  def get(name: String): IO[Option[Session]] = load.map(_.servers.get(name))
 }

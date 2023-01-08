@@ -16,11 +16,10 @@
 
 package dev.hnaderi.portainer
 
-import cats.effect.IO
+import java.net.URI
 
-trait SessionManager {
-  def load: IO[Sessions]
-  def save(sessions: Sessions): IO[Unit]
-  def add(name: String, session: Session): IO[Unit]
-  def get(name: String): IO[Option[Session]]
+sealed trait ServerConfig extends Serializable with Product
+object ServerConfig {
+  final case class Inline(address: URI, token: String) extends ServerConfig
+  final case class Session(name: String) extends ServerConfig
 }

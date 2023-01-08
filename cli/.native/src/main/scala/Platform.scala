@@ -47,7 +47,7 @@ abstract class Platform extends IOApp with CurlApp {
     // do not echo the characters
     !newT = !oldT
 
-      //FIXME does not work for some reason!!!
+    // FIXME does not work for some reason!!!
     newT._4 = newT._4 & ~(ECHO)
 
     // set this as the new terminal options
@@ -60,7 +60,7 @@ abstract class Platform extends IOApp with CurlApp {
     // the \n is stored, we replace it with \0
     val password: CString = stackalloc(size.toULong)
     fgets(password, size, stdin)
-    password.update(strlen(password) - 1.toUInt, 0)
+    password.update(strlen(password) - 1.toUInt, 0.toByte)
 
     tcsetattr(STDIN_FILENO, TCSANOW, oldT)
 

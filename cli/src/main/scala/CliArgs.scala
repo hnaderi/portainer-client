@@ -26,9 +26,10 @@ object CliArgs {
     Command("login", "login to server and adds it to sessions")(
       (
         Opts.option[String]("name", "server name to add", "n"),
+        Opts.option[URI]("address", "portainer http path to api", "H"),
         Opts.option[String]("username", "username to login to server", "u"),
         Opts.option[String]("password", "password to use for login", "p").orNone
-      ).mapN(CLICommand.Login(_, _, _))
+      ).mapN(CLICommand.Login(_, _, _, _))
     )
 
   private val logout =
@@ -38,30 +39,44 @@ object CliArgs {
         .map(CLICommand.Logout(_))
     )
 
-  private val stacks =
+  private val stacks: Command[Requests] = {
+    val listing =
+      Command("list", "list all stacks")(Opts.unit.as(Requests.Stack.Listing()))
+    val get = Command("get", "get stack by id")(
+      Opts.argument[String]("stack id").map(Requests.Stack.Get(_))
+    )
+
     Command("stack", "stack related actions")(
-      Opts(CLICommand.External(Models.Stack.Get()))
+      Opts.subcommands(listing, get)
     )
-  private val endpoints =
-    Command("endpoints", "stack related actions")(
-      Opts(CLICommand.External(Models.Endpoint.Get()))
+  }
+
+  private val endpoints: Command[Requests] =
+    Command("endpoints", "endpoint related actions")(
+      Opts(Requests.Endpoint.Get())
     )
 
-  private val globalOptions = (
-    Opts.flag("print", "just print curl and exit", "P").orFalse,
-    Opts
-      .option[String]("server", "use registered server name", "s")
-      .map(ServerConfig.Session(_))
-      .orElse(
-        (
-          Opts.option[URI]("address", "portainer http path to api", "H"),
-          Opts.option[String]("token", "API token", "t")
-        ).mapN(ServerConfig.Inline(_, _))
-      )
-  ).mapN(Config(_, _))
+  private val isPrint =
+    Opts.flag("print", "just print curl and exit", "P").orFalse
+  private val serverConfig: Opts[ServerConfig] = (Opts
+    .option[String]("server", "use registered server name", "s")
+    .map(ServerConfig.Session(_))
+    .orElse(
+      (
+        Opts.option[URI]("address", "portainer http path to api", "H"),
+        Opts.option[String]("token", "API token", "t")
+      ).mapN(ServerConfig.Inline(_, _))
+    ))
 
-  val pctl: Command[(CLICommand, Config)] =
+  private val internal =
+    Opts.subcommands(login, logout)
+
+  private val external =
+    (Opts.subcommands(stacks, endpoints), serverConfig)
+      .mapN(CLICommand.External(_, _))
+
+  val pctl: Command[CLIOptions] =
     Command("portainer", "portainer client")(
-      Opts.subcommands(login, logout, stacks, endpoints).product(globalOptions)
+      (internal.orElse(external), isPrint).mapN(CLIOptions(_, _))
     )
 }
