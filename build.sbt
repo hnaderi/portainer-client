@@ -48,13 +48,14 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
   .jvmSettings(
     libraryDependencies ++= Seq(
       "org.http4s" %%% "http4s-ember-client" % http4sVersion
-    ),
+    )
   )
   .nativeSettings(
     libraryDependencies ++= Seq(
       "org.http4s" %%% "http4s-curl" % "0.1.1"
     ),
-    nativeConfig ~= { _.withGC(GC.none)// .withLTO(LTO.thin).withMode(Mode.releaseFull)
+    nativeConfig ~= {
+      _.withGC(GC.none) // .withLTO(LTO.thin).withMode(Mode.releaseFull)
     }
   )
 

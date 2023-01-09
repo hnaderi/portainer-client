@@ -16,10 +16,17 @@
 
 package dev.hnaderi
 
+import java.util.Base64
+
 package object portainer {
   type ServerName = String
   type LoginToken = String
   type APIToken = String
   type Username = String
   type Password = String
+
+  private implicit class StringEncodingOps(val str: String) extends AnyVal {
+    def base64: String =
+      Base64.getEncoder().encodeToString(str.getBytes())
+  }
 }

@@ -21,7 +21,6 @@ import org.http4s.Method
 import models._
 import io.circe.Json
 
-sealed trait Requests extends Serializable with Product
 object Requests {
   final case class Login(username: String, password: String)
       extends PortainerRequestBase[LoginToken] {
@@ -37,9 +36,7 @@ object Requests {
   }
 
   object Endpoint {
-    final case class Get()
-        extends PortainerRequestBase[Endpoint]
-        with Requests {
+    final case class Get() extends PortainerRequestBase[Endpoint] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "endpoints" / "id")()
     }
@@ -47,7 +44,19 @@ object Requests {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "endpoints")()
     }
-
+    final case class Create() extends PortainerRequestBase[Endpoint] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.get(_ / "endpoints")()
+    }
+    final case class Update(id: String)
+        extends PortainerRequestBase[List[Endpoint]] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.send(_ / "endpoints" / id, Method.PUT)
+    }
+    final case class Delete(id: String) extends PortainerRequestBase[Unit] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.send(_ / "endpoints" / id, Method.DELETE)
+    }
   }
 
   object EndpointGroup {
@@ -68,19 +77,41 @@ object Requests {
   }
 
   object Stack {
-    final case class Get(id: String)
-        extends PortainerRequestBase[Stack]
-        with Requests {
+    final case class Get(
+        endpointId: Option[String] = None,
+        swarmId: Option[String] = None
+    ) extends PortainerRequestBase[Stack] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
-        client.get(_ / "stacks" / id)()
+        client.get(_ / "stacks" / "id")(
+        )
     }
-    final case class Listing()
-        extends PortainerRequestBase[Json]
-        with Requests {
+    final case class Listing() extends PortainerRequestBase[List[Stack]] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "stacks")()
     }
 
+    final case class Create() extends PortainerRequestBase[Stack] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.get(_ / "stacks")()
+    }
+    final case class Update(id: String)
+        extends PortainerRequestBase[List[Stack]] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.send(_ / "stacks" / id, Method.PUT)
+    }
+    final case class GetFile(id: String) extends PortainerRequestBase[Json] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.get(_ / "stacks" / id / "file")()
+    }
+
+    final case class Start(id: String) extends PortainerRequestBase[Unit] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.send(_ / "stacks" / id / "start", Method.POST)
+    }
+    final case class Stop(id: String) extends PortainerRequestBase[Unit] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.send(_ / "stacks" / id / "stop", Method.POST)
+    }
   }
 
 }
