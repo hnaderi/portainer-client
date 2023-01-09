@@ -95,6 +95,7 @@ jobs:
           cp "C:\vcpkg\installed\x64-windows\lib\libcurl.lib" "C:\vcpkg\installed\x64-windows\lib\curl.lib"
 
       - name: Check that workflows are up to date
+        if: '!startsWith(matrix.os, ''windows'')'
         shell: bash
         run: sbt githubWorkflowCheck
 

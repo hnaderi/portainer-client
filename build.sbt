@@ -67,6 +67,23 @@ ThisBuild / envVars ++= {
 }
 /////
 
+// NOTE apparently githubWorkflowCheck does not work as intended on windows
+// due to file separator differences
+ThisBuild / githubWorkflowGeneratedCI ~= {
+  _.map { job =>
+    if (job.id == "build")
+      job.copy(
+        steps = job.steps.map {
+          case step: WorkflowStep.Run
+              if step.commands.exists(_ contains "githubWorkflowCheck") =>
+            step.copy(cond = Some("!startsWith(matrix.os, 'windows')"))
+          case other => other // unchanged
+        }
+      )
+    else job
+  }
+}
+
 lazy val root = tlCrossRootProject.aggregate(core, cli)
 
 val catsEffectVersion = "3.3.14"
