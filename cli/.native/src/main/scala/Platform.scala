@@ -24,46 +24,10 @@ import org.http4s.curl.CurlApp
 
 abstract class Platform extends IOApp with CurlApp {
   protected def client: Resource[IO, Client[IO]] = Resource.pure(curlClient)
-  protected val terminal: Terminal[IO] = Terminal(IO.blocking(read))
-
-  private val size: Int = 100
-
-  private def read: String = {
-    import scala.scalanative.unsafe._
-    import scala.scalanative.unsigned._
-    import scala.scalanative.posix.termios._
-    import scala.scalanative.posix.unistd.STDIN_FILENO
-    import scala.scalanative.libc.stdio._
-    import scala.scalanative.libc.string.strlen
-
-    puts(c"Enter password: ")
-
-    // get settings of the actual terminal
-    val oldT = stackalloc[termios]()
-    val newT = stackalloc[termios]()
-    if (tcgetattr(STDIN_FILENO, oldT) < 0)
-      perror(c"Cannot get terminal attributes!")
-
-    // do not echo the characters
-    !newT = !oldT
-
-    // FIXME does not work for some reason!!!
-    newT._4 = newT._4 & ~(ECHO)
-
-    // set this as the new terminal options
-    if (tcsetattr(STDIN_FILENO, TCSANOW, newT.toPtr) < 0)
-      perror(c"Cannot set terminal attributes!")
-
-    // get the password
-    // the user can add chars and delete if he puts it wrong
-    // the input process is done when he hits the enter
-    // the \n is stored, we replace it with \0
-    val password: CString = stackalloc(size.toULong)
-    fgets(password, size, stdin)
-    password.update(strlen(password) - 1.toUInt, 0.toByte)
-
-    tcsetattr(STDIN_FILENO, TCSANOW, oldT)
-
-    fromCString(password)
-  }
+  // There is no cross platform solution to read password
+  // from console on windows and posix systems
+  // Also termios in scala native seems to not work properly!
+  protected val terminal: Terminal[IO] = Terminal(
+    IO.println("password: ") >> IO.readLine
+  )
 }
