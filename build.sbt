@@ -10,11 +10,62 @@ ThisBuild / developers := List(
 )
 
 ThisBuild / tlSonatypeUseLegacyHost := false
-ThisBuild / tlSitePublishBranch := Some("main")
+ThisBuild / tlSitePublishBranch := None //Some("main")
 
 val Scala213 = "2.13.9"
-ThisBuild / crossScalaVersions := Seq(Scala213, "3.2.0")
+val Scala3 = "3.2.0"
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion := Scala213
+
+// TODO: This section is a mindless copy paste from http4s-curl
+// which might need some tweaks?!
+ThisBuild / githubWorkflowOSes :=
+  Seq("ubuntu-20.04", "ubuntu-22.04", "macos-11", "macos-12", "windows-2022")
+ThisBuild / githubWorkflowBuildMatrixExclusions +=
+  MatrixExclude(Map("scala" -> Scala3, "os" -> "windows-2022")) // dottydoc bug
+
+val vcpkgBaseDir = "C:/vcpkg/"
+ThisBuild / githubWorkflowBuildPreamble ++= Seq(
+  WorkflowStep.Run(
+    List("sudo apt-get update", "sudo apt-get install libcurl4-openssl-dev"),
+    name = Some("Install libcurl (ubuntu)"),
+    cond = Some("startsWith(matrix.os, 'ubuntu')")
+  ),
+  WorkflowStep.Run(
+    List(
+      "vcpkg integrate install",
+      "vcpkg install --triplet x64-windows curl",
+      """cp "C:\vcpkg\installed\x64-windows\lib\libcurl.lib" "C:\vcpkg\installed\x64-windows\lib\curl.lib""""
+    ),
+    name = Some("Install libcurl (windows)"),
+    cond = Some("startsWith(matrix.os, 'windows')")
+  )
+)
+ThisBuild / githubWorkflowBuildPostamble ~= {
+  _.filterNot(_.name.contains("Check unused compile dependencies"))
+}
+ThisBuild / nativeConfig ~= { c =>
+  val osNameOpt = sys.props.get("os.name")
+  val isMacOs = osNameOpt.exists(_.toLowerCase().contains("mac"))
+  val isWindows = osNameOpt.exists(_.toLowerCase().contains("windows"))
+  if (isMacOs) { // brew-installed curl
+    c.withLinkingOptions(c.linkingOptions :+ "-L/usr/local/opt/curl/lib")
+  } else if (isWindows) { // vcpkg-installed curl
+    c.withCompileOptions(
+      c.compileOptions :+ s"-I${vcpkgBaseDir}/installed/x64-windows/include/"
+    ).withLinkingOptions(
+      c.linkingOptions :+ s"-L${vcpkgBaseDir}/installed/x64-windows/lib/"
+    )
+  } else c
+}
+ThisBuild / envVars ++= {
+  if (sys.props.get("os.name").exists(_.toLowerCase().contains("windows")))
+    Map(
+      "PATH" -> s"${sys.props.getOrElse("PATH", "")};${vcpkgBaseDir}/installed/x64-windows/bin/"
+    )
+  else Map.empty[String, String]
+}
+/////
 
 lazy val root = tlCrossRootProject.aggregate(core, cli)
 
