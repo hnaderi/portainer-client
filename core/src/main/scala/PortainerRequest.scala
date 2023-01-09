@@ -16,6 +16,23 @@
 
 package dev.hnaderi.portainer
 
+import io.circe.Json
+import io.circe.Decoder
+import cats.implicits._
+import cats.MonadThrow
+
 trait PortainerRequest[O] {
-  def call[F[_]](client: PortainerClient[F]): F[O]
+  def callRaw[F[_]](client: PortainerClient[F]): F[Json]
+  def call[F[_]: MonadThrow](client: PortainerClient[F]): F[O]
+}
+
+abstract class PortainerRequestBase[O: Decoder] extends PortainerRequest[O] {
+  def callRaw[F[_]](client: PortainerClient[F]): F[Json]
+  final def call[F[_]: MonadThrow](client: PortainerClient[F]): F[O] =
+    callRaw(client).flatMap(j => MonadThrow[F].fromEither(j.as[O]))
+}
+
+abstract class PortainerRequestRaw extends PortainerRequest[Json] {
+  final def call[F[_]: MonadThrow](client: PortainerClient[F]): F[Json] =
+    callRaw(client)
 }

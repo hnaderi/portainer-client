@@ -25,16 +25,16 @@ object Sessions {
   implicit val encoder: Encoder[Sessions] =
     Encoder.instance(s => Json.obj("servers" -> s.servers.asJson))
   implicit val decoder: Decoder[Sessions] = (c: HCursor) =>
-    c.downField("servers").as[Map[String, Session]].map(Sessions(_))
+    c.downField("servers").as[Map[ServerName, Session]].map(Sessions(_))
 }
 
 final case class Sessions(
-    servers: Map[String, Session]
+    servers: Map[ServerName, Session]
 )
 
 final case class Session(
     address: URI,
-    token: String
+    token: LoginToken
 )
 
 object Session {

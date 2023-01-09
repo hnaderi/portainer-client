@@ -25,7 +25,7 @@ import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 import scala.jdk.CollectionConverters._
 
-final case class LocalSessionManager(path: String) extends SessionManager {
+final case class LocalSessionManager(path: String) extends SessionManager[IO] {
   private val portainerRc = Paths.get(path)
   private val readSessionsFile = IO {
     if (Files.exists(portainerRc))

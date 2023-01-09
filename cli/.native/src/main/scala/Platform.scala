@@ -24,7 +24,7 @@ import org.http4s.curl.CurlApp
 
 abstract class Platform extends IOApp with CurlApp {
   protected def client: Resource[IO, Client[IO]] = Resource.pure(curlClient)
-  protected def readPassword: IO[String] = IO.blocking(read)
+  protected val terminal: Terminal[IO] = Terminal(IO.blocking(read))
 
   private val size: Int = 100
 

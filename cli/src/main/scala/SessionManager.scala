@@ -16,11 +16,9 @@
 
 package dev.hnaderi.portainer
 
-import cats.effect.IO
-
-trait SessionManager {
-  def load: IO[Sessions]
-  def save(sessions: Sessions): IO[Unit]
-  def add(name: String, session: Session): IO[Unit]
-  def get(name: String): IO[Option[Session]]
+trait SessionManager[F[_]] {
+  def load: F[Sessions]
+  def save(sessions: Sessions): F[Unit]
+  def add(name: String, session: Session): F[Unit]
+  def get(name: String): F[Option[Session]]
 }

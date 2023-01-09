@@ -18,8 +18,24 @@ package dev.hnaderi.portainer
 
 import java.net.URI
 
-sealed trait ServerConfig extends Serializable with Product
-object ServerConfig {
-  final case class Inline(address: URI, token: APIToken) extends ServerConfig
-  final case class Session(name: ServerName) extends ServerConfig
+trait CommandLine[F[_]] {
+  def login(
+      server: ServerName,
+      address: URI,
+      username: Username,
+      password: Option[Password] = None,
+      print: Boolean = false
+  ): F[Unit]
+
+  def logout(server: ServerName): F[Unit]
+
+  def raw(
+      server: ServerConfig,
+      request: PortainerRequest[?],
+      print: Boolean = false
+  ): F[Unit]
+
+  def deploy(): F[Unit]
+  def destroy(): F[Unit]
+  def cleanup(): F[Unit]
 }

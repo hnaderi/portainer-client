@@ -16,10 +16,25 @@
 
 package dev.hnaderi.portainer
 
-import java.net.URI
+import cats.Show
+import cats.effect._
 
-sealed trait ServerConfig extends Serializable with Product
-object ServerConfig {
-  final case class Inline(address: URI, token: APIToken) extends ServerConfig
-  final case class Session(name: ServerName) extends ServerConfig
+trait Terminal[F[_]] {
+  def println[O: Show](o: O): F[Unit]
+  def error[O: Show](o: O): F[Unit]
+  def readPassword: F[Password]
+}
+
+object Terminal {
+  def apply[F[_]](
+      password: F[Password]
+  )(implicit con: std.Console[F]): Terminal[F] = new Terminal[F] {
+
+    override def println[O: Show](o: O): F[Unit] = con.println(o)
+
+    override def error[O: Show](o: O): F[Unit] = con.error(o)
+
+    override def readPassword: F[Password] = password
+
+  }
 }

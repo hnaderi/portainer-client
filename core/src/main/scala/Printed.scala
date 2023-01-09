@@ -16,6 +16,7 @@
 
 package dev.hnaderi.portainer
 
+import cats.Show
 import io.circe.Json
 import io.circe.syntax._
 import org.http4s._
@@ -26,6 +27,9 @@ final case class Printed[F[_], O](req: Request[F], body: Option[Json] = None) {
 }
 
 object Printed {
+  implicit def showInstance[F[_], O]: Show[Printed[F, O]] =
+    Show.show(_.toString)
+
   // escapes characters that are used in the curl-command, such as '
   private def escapeQuotationMarks(s: String) = s.replaceAll("'", """'\\''""")
 

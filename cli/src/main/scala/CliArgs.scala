@@ -39,7 +39,7 @@ object CliArgs {
         .map(CLICommand.Logout(_))
     )
 
-  private val stacks: Command[Requests] = {
+  private val stacks: Command[PortainerRequest[?]] = {
     val listing =
       Command("list", "list all stacks")(Opts.unit.as(Requests.Stack.Listing()))
     val get = Command("get", "get stack by id")(
@@ -51,13 +51,14 @@ object CliArgs {
     )
   }
 
-  private val endpoints: Command[Requests] =
+  private val endpoints: Command[PortainerRequest[?]] =
     Command("endpoints", "endpoint related actions")(
       Opts(Requests.Endpoint.Get())
     )
 
   private val isPrint =
     Opts.flag("print", "just print curl and exit", "P").orFalse
+
   private val serverConfig: Opts[ServerConfig] = (Opts
     .option[String]("server", "use registered server name", "s")
     .map(ServerConfig.Session(_))
@@ -72,11 +73,11 @@ object CliArgs {
     Opts.subcommands(login, logout)
 
   private val external =
-    (Opts.subcommands(stacks, endpoints), serverConfig)
-      .mapN(CLICommand.External(_, _))
+    (Opts.subcommands(stacks, endpoints), serverConfig, isPrint)
+      .mapN(CLICommand.External(_, _, _))
 
-  val pctl: Command[CLIOptions] =
+  val pctl: Command[CLICommand] =
     Command("portainer", "portainer client")(
-      (internal.orElse(external), isPrint).mapN(CLIOptions(_, _))
+      internal.orElse(external)
     )
 }

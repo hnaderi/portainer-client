@@ -24,8 +24,8 @@ import io.circe.Json
 sealed trait Requests extends Serializable with Product
 object Requests {
   final case class Login(username: String, password: String)
-      extends PortainerRequest[LoginToken] {
-    override def call[F[_]](client: PortainerClient[F]): F[LoginToken] =
+      extends PortainerRequestBase[LoginToken] {
+    override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
       client.send(
         _ / "auth",
         Method.POST,
@@ -37,44 +37,47 @@ object Requests {
   }
 
   object Endpoint {
-    final case class Get() extends PortainerRequest[Endpoint] with Requests {
-      override def call[F[_]](client: PortainerClient[F]): F[Endpoint] =
+    final case class Get()
+        extends PortainerRequestBase[Endpoint]
+        with Requests {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "endpoints" / "id")()
     }
-    final case class Listing() extends PortainerRequest[List[Endpoint]] {
-      override def call[F[_]](client: PortainerClient[F]): F[List[Endpoint]] =
+    final case class Listing() extends PortainerRequestBase[List[Endpoint]] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "endpoints")()
     }
 
   }
 
   object EndpointGroup {
-    final case class Get(id: String) extends PortainerRequest[Json] {
-      override def call[F[_]](client: PortainerClient[F]): F[Json] =
+    final case class Get(id: String)
+        extends PortainerRequestBase[EndpointGroup] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "endpoints_groups" / id)()
     }
 
   }
 
   object Registry {
-    final case class Get() extends PortainerRequest[Registry] {
-
-      override def call[F[_]](client: PortainerClient[F]): F[Registry] =
+    final case class Get() extends PortainerRequestBase[Registry] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "registry")()
-
     }
 
   }
 
   object Stack {
     final case class Get(id: String)
-        extends PortainerRequest[Json]
+        extends PortainerRequestBase[Stack]
         with Requests {
-      override def call[F[_]](client: PortainerClient[F]): F[Json] =
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "stacks" / id)()
     }
-    final case class Listing() extends PortainerRequest[Json] with Requests {
-      override def call[F[_]](client: PortainerClient[F]): F[Json] =
+    final case class Listing()
+        extends PortainerRequestBase[Json]
+        with Requests {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "stacks")()
     }
 

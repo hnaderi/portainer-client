@@ -20,15 +20,22 @@ import java.net.URI
 
 sealed trait CLICommand extends Serializable with Product
 object CLICommand {
-  final case class External(request: Requests, server: ServerConfig)
-      extends CLICommand
+  final case class External(
+      request: PortainerRequest[?],
+      server: ServerConfig,
+      print: Boolean = false
+  ) extends CLICommand
+
+  final case class Deploy() extends CLICommand
+  final case class Destroy() extends CLICommand
+  final case class CleanUp() extends CLICommand
+
   final case class Login(
       server: String,
       address: URI,
       username: String,
-      password: Option[String]
+      password: Option[String] = None,
+      print: Boolean = false
   ) extends CLICommand
   final case class Logout(server: String) extends CLICommand
 }
-
-final case class CLIOptions(command: CLICommand, print: Boolean = false)

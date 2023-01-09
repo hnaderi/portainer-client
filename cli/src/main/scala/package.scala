@@ -14,20 +14,12 @@
  * limitations under the License.
  */
 
-package dev.hnaderi.portainer
+package dev.hnaderi
 
-import io.circe.Json
-
-import models._
-
-trait ResultPrinter[O] {
-  def print(o: O): String
-}
-
-object ResultPrinter {
-  implicit def apply[O](implicit rp: ResultPrinter[O]): ResultPrinter[O] = rp
-
-  implicit val jsonPrinter: ResultPrinter[Json] = _.noSpaces
-  implicit val stackPrinter: ResultPrinter[Stack] = _ => ""
-  implicit val endpointPrinter: ResultPrinter[Endpoint] = _ => ""
+package object portainer {
+  type ServerName = String
+  type LoginToken = String
+  type APIToken = String
+  type Username = String
+  type Password = String
 }
