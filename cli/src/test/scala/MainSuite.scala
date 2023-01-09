@@ -16,13 +16,14 @@
 
 package dev.hnaderi.portainer
 
+import cats.effect.ExitCode
 import munit.CatsEffectSuite
 
 class MainSuite extends CatsEffectSuite {
 
   test("Main should exit succesfully") {
-    val main = Main.run.attempt
-    assertIO(main, Right(()))
+    val main = Main.run(List("--help")).attempt
+    assertIO(main, Right(ExitCode.Success))
   }
 
 }

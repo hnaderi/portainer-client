@@ -42,7 +42,8 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
   .dependsOn(core)
   .settings(
     libraryDependencies ++= Seq(
-      "com.monovore" %%% "decline" % "2.4.1"
+      "com.monovore" %%% "decline" % "2.4.1",
+      "org.typelevel" %%% "munit-cats-effect" % munitCEVersion % Test
     )
   )
   .jvmSettings(

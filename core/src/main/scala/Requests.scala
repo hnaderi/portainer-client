@@ -78,11 +78,12 @@ object Requests {
 
   object Stack {
     final case class Get(
+        id: String,
         endpointId: Option[String] = None,
         swarmId: Option[String] = None
     ) extends PortainerRequestBase[Stack] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
-        client.get(_ / "stacks" / "id")(
+        client.get(_ / "stacks" / id)(
         )
     }
     final case class Listing() extends PortainerRequestBase[List[Stack]] {
