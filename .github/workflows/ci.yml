@@ -80,14 +80,14 @@ jobs:
           key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
       - name: Install libcurl (ubuntu)
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu') && matrix.project == 'rootNative' 
         shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install libcurl4-openssl-dev
 
       - name: Install libcurl (windows)
-        if: startsWith(matrix.os, 'windows')
+        if: startsWith(matrix.os, 'windows') && matrix.project == 'rootNative' 
         shell: bash
         run: |
           vcpkg integrate install
@@ -127,6 +127,10 @@ jobs:
         if: matrix.java == 'temurin@8'
         shell: bash
         run: sbt 'project ${{ matrix.project }}' '++ ${{ matrix.scala }}' doc
+
+      - name: Building native binaries
+        shell: bash
+        run: sbt 'project ${{ matrix.project }}' '++ ${{ matrix.scala }}' cliNative/nativeLink
 
       - name: Make target directories
         if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
@@ -266,6 +270,20 @@ jobs:
 
       - name: Publish
         run: sbt '++ ${{ matrix.scala }}' tlRelease
+
+      - name: Renaming artifacts
+        id: rename_artifact
+        if:  startsWith(matrix.scala, '2') && matrix.project == 'rootNative' 
+        run: |
+          mkdir -p dist
+          cp cli/.native/target/scala-2.13/portainer-client-out dist/${{ matrix.os }}
+
+      - name: Upload native artifacts
+        if:  startsWith(matrix.scala, '2') && matrix.project == 'rootNative' 
+        uses: actions/upload-artifact@v3
+        with:
+          name: $${{ matrix.os }}
+          path: dist/*
 
   site:
     name: Generate Site
