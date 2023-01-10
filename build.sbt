@@ -70,7 +70,11 @@ val Scala3 = "3.2.0"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion := Scala213
 
-lazy val root = tlCrossRootProject.aggregate(core, cli)
+lazy val root = tlCrossRootProject
+  .aggregate(core, cli)
+  .settings(
+    name := "portainer"
+  )
 
 val catsEffectVersion = "3.3.14"
 val http4sVersion = "0.23.16"
@@ -80,7 +84,7 @@ lazy val core = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("core"))
   .settings(
-    name := "client",
+    name := "portainer-client",
     description := "portainer client library",
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-effect" % catsEffectVersion,
@@ -96,7 +100,7 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
   .enablePlugins(NoPublishPlugin)
   .dependsOn(core)
   .settings(
-    name := "portainer-client",
+    name := "portainer-cli",
     description := "portainer client cli",
     libraryDependencies ++= Seq(
       "com.monovore" %%% "decline" % "2.4.1",

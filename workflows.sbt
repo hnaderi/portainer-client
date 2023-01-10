@@ -15,16 +15,15 @@ ThisBuild / githubWorkflowGeneratedCI ~= {
   }
 }
 
-ThisBuild / githubWorkflowBuildPostamble += WorkflowStep.Sbt(
-  List("cliNative/nativeLink"),
-  name = Some("Building native binaries")
-)
-
-ThisBuild / githubWorkflowPublish ++= Seq(
+ThisBuild / githubWorkflowBuildPostamble ++= Seq(
+  WorkflowStep.Sbt(
+    List("cliNative/nativeLink"),
+    name = Some("Building native binaries")
+  ),
   WorkflowStep.Run(
     List(
       "mkdir -p dist",
-      "cp cli/.native/target/scala-2.13/portainer-client-out dist/${{ matrix.os }}"
+      "cp cli/.native/target/scala-2.13/portainer-cli-out dist/portainer-${{ matrix.os }}"
     ),
     id = Some("rename_artifact"),
     name = Some("Renaming artifacts"),
@@ -35,7 +34,7 @@ ThisBuild / githubWorkflowPublish ++= Seq(
     UseRef.Public("actions", "upload-artifact", "v3"),
     name = Some("Upload native artifacts"),
     params = Map(
-      "name" -> "$${{ matrix.os }}",
+      "name" -> "client-$${{ matrix.os }}",
       "path" -> "dist/*"
     ),
     cond =
