@@ -27,7 +27,7 @@ abstract class Platform extends IOApp with CurlApp {
 
   private val echoOff = IO(platform_terminal.setStdinEcho(0))
   private val echoOn = IO(platform_terminal.setStdinEcho(1))
-  private val noEcho = Resource.make(echoOff)(_=> echoOn)
+  private val noEcho = Resource.make(echoOff)(_ => echoOn)
 
   protected val terminal: Terminal[IO] = Terminal(
     IO.println("password: ") >> noEcho.surround(IO.readLine)
