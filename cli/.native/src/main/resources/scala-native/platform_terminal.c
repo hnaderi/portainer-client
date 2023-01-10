@@ -1,8 +1,8 @@
-#ifdef WIN32
-#include <windows.h>
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+  #include <windows.h>
 #else
-#include <termios.h>
-#include <unistd.h>
+  #include <termios.h>
+  #include <unistd.h>
 #endif
 
 void dev_hnaderi_set_stdin_echo(char enable) {
