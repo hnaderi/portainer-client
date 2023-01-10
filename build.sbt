@@ -12,11 +12,6 @@ ThisBuild / developers := List(
 ThisBuild / tlSonatypeUseLegacyHost := false
 ThisBuild / tlSitePublishBranch := None //Some("main")
 
-val Scala213 = "2.13.9"
-val Scala3 = "3.2.0"
-ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
-ThisBuild / scalaVersion := Scala213
-
 // TODO: This section is a mindless copy paste from http4s-curl
 // which might need some tweaks?!
 ThisBuild / githubWorkflowOSes :=
@@ -29,7 +24,8 @@ ThisBuild / githubWorkflowBuildPreamble ++= Seq(
   WorkflowStep.Run(
     List("sudo apt-get update", "sudo apt-get install libcurl4-openssl-dev"),
     name = Some("Install libcurl (ubuntu)"),
-    cond = Some("startsWith(matrix.os, 'ubuntu')")
+    cond =
+      Some("startsWith(matrix.os, 'ubuntu') && matrix.project == 'rootNative' ")
   ),
   WorkflowStep.Run(
     List(
@@ -38,12 +34,17 @@ ThisBuild / githubWorkflowBuildPreamble ++= Seq(
       """cp "C:\vcpkg\installed\x64-windows\lib\libcurl.lib" "C:\vcpkg\installed\x64-windows\lib\curl.lib""""
     ),
     name = Some("Install libcurl (windows)"),
-    cond = Some("startsWith(matrix.os, 'windows')")
+    cond = Some(
+      "startsWith(matrix.os, 'windows') && matrix.project == 'rootNative' "
+    )
   )
 )
 ThisBuild / githubWorkflowBuildPostamble ~= {
-  _.filterNot(_.name.contains("Check unused compile dependencies"))
+  _.filterNot(
+    _.name.contains("Check unused compile dependencies")
+  )
 }
+
 ThisBuild / nativeConfig ~= { c =>
   val osNameOpt = sys.props.get("os.name")
   val isMacOs = osNameOpt.exists(_.toLowerCase().contains("mac"))
@@ -67,22 +68,10 @@ ThisBuild / envVars ++= {
 }
 /////
 
-// NOTE apparently githubWorkflowCheck does not work as intended on windows
-// due to file separator differences
-ThisBuild / githubWorkflowGeneratedCI ~= {
-  _.map { job =>
-    if (job.id == "build")
-      job.copy(
-        steps = job.steps.map {
-          case step: WorkflowStep.Run
-              if step.commands.exists(_ contains "githubWorkflowCheck") =>
-            step.copy(cond = Some("!startsWith(matrix.os, 'windows')"))
-          case other => other // unchanged
-        }
-      )
-    else job
-  }
-}
+val Scala213 = "2.13.9"
+val Scala3 = "3.2.0"
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
+ThisBuild / scalaVersion := Scala213
 
 lazy val root = tlCrossRootProject.aggregate(core, cli)
 
@@ -94,7 +83,8 @@ lazy val core = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("core"))
   .settings(
-    name := "portainer-cli",
+    name := "client",
+    description := "portainer client library",
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-effect" % catsEffectVersion,
       "org.http4s" %%% "http4s-client" % http4sVersion,
@@ -109,6 +99,8 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
   .enablePlugins(NoPublishPlugin)
   .dependsOn(core)
   .settings(
+    name := "portainer-client",
+    description := "portainer client cli",
     libraryDependencies ++= Seq(
       "com.monovore" %%% "decline" % "2.4.1",
       "org.typelevel" %%% "munit-cats-effect" % munitCEVersion % Test
