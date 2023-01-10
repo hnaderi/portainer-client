@@ -80,14 +80,14 @@ jobs:
           key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
       - name: Install libcurl (ubuntu)
-        if: startsWith(matrix.os, 'ubuntu') && matrix.project == 'rootNative' 
+        if: startsWith(matrix.os, 'ubuntu')
         shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install libcurl4-openssl-dev
 
       - name: Install libcurl (windows)
-        if: startsWith(matrix.os, 'windows') && matrix.project == 'rootNative' 
+        if: startsWith(matrix.os, 'windows')
         shell: bash
         run: |
           vcpkg integrate install

@@ -24,8 +24,7 @@ ThisBuild / githubWorkflowBuildPreamble ++= Seq(
   WorkflowStep.Run(
     List("sudo apt-get update", "sudo apt-get install libcurl4-openssl-dev"),
     name = Some("Install libcurl (ubuntu)"),
-    cond =
-      Some("startsWith(matrix.os, 'ubuntu') && matrix.project == 'rootNative' ")
+    cond = Some("startsWith(matrix.os, 'ubuntu')")
   ),
   WorkflowStep.Run(
     List(
@@ -34,9 +33,7 @@ ThisBuild / githubWorkflowBuildPreamble ++= Seq(
       """cp "C:\vcpkg\installed\x64-windows\lib\libcurl.lib" "C:\vcpkg\installed\x64-windows\lib\curl.lib""""
     ),
     name = Some("Install libcurl (windows)"),
-    cond = Some(
-      "startsWith(matrix.os, 'windows') && matrix.project == 'rootNative' "
-    )
+    cond = Some("startsWith(matrix.os, 'windows')")
   )
 )
 ThisBuild / githubWorkflowBuildPostamble ~= {
