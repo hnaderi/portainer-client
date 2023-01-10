@@ -104,7 +104,8 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
     description := "portainer client cli",
     libraryDependencies ++= Seq(
       "com.monovore" %%% "decline" % "2.4.1",
-      "org.typelevel" %%% "munit-cats-effect" % munitCEVersion % Test
+      "org.typelevel" %%% "munit-cats-effect" % munitCEVersion % Test,
+      "dev.hnaderi" %%% "readpassword" % "0.0.1"
     )
   )
   .jvmSettings(

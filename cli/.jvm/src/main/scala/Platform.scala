@@ -25,8 +25,4 @@ import org.http4s.ember.client.EmberClientBuilder
 abstract class Platform extends IOApp {
   protected def client: Resource[IO, Client[IO]] =
     EmberClientBuilder.default[IO].build
-
-  protected val terminal: Terminal[IO] = Terminal(
-    IO.interruptible(new String(System.console().readPassword("password: ")))
-  )
 }

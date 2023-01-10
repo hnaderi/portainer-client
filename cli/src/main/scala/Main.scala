@@ -18,9 +18,13 @@ package dev.hnaderi.portainer
 
 import cats.effect._
 import cats.implicits._
+import dev.hnaderi.readpassword
 
 object Main extends Platform {
   private val session = LocalSessionManager(".portainerrc")
+  private val terminal = Terminal(
+    IO.blocking(readpassword.read("Enter password: "))
+  )
 
   import CLICommand._
   override def run(args: List[String]): IO[ExitCode] =

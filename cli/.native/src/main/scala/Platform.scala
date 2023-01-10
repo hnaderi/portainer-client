@@ -24,21 +24,4 @@ import org.http4s.curl.CurlApp
 
 abstract class Platform extends IOApp with CurlApp {
   protected def client: Resource[IO, Client[IO]] = Resource.pure(curlClient)
-
-  private val echoOff = IO(platform_terminal.setStdinEcho(0))
-  private val echoOn = IO(platform_terminal.setStdinEcho(1))
-  private val noEcho = Resource.make(echoOff)(_ => echoOn)
-
-  protected val terminal: Terminal[IO] = Terminal(
-    IO.println("password: ") >> noEcho.surround(IO.readLine)
-  )
-
-}
-
-import scalanative.unsafe._
-
-@extern
-private object platform_terminal {
-  @name("dev_hnaderi_set_stdin_echo")
-  def setStdinEcho(enable: CChar): Unit = extern
 }
