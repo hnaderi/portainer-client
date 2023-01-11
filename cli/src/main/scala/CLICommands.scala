@@ -17,6 +17,8 @@
 package dev.hnaderi.portainer
 
 import cats.data.NonEmptyList
+import cats.data.ValidatedNel
+import cats.implicits._
 
 import java.net.URI
 import java.nio.file.Path
@@ -31,6 +33,7 @@ object CLICommand {
   ) extends CLICommand
 
   final case class Deploy(
+      server: ServerConfig,
       compose: Path,
       endpoint: NonEmptyList[String],
       stack: String,
@@ -41,6 +44,7 @@ object CLICommand {
   ) extends CLICommand
 
   final case class Destroy(
+      server: ServerConfig,
       endpoint: NonEmptyList[String],
       stacks: NonEmptyList[String],
       configs: Option[NonEmptyList[String]] = None,
@@ -64,6 +68,8 @@ object InlineEnv {
     case pattern(key, value) => Some(InlineEnv(key.trim, value))
     case _                   => None
   }
+  def validate(str: String): ValidatedNel[String, InlineEnv] =
+    apply(str).toValidNel(s"'$str' is not in valid format key=value")
 }
 final case class FileMapping(source: Path, name: String)
 object FileMapping {
@@ -73,4 +79,6 @@ object FileMapping {
       Some(FileMapping(Paths.get(file.trim), name.trim))
     case _ => None
   }
+  def validate(str: String): ValidatedNel[String, FileMapping] =
+    apply(str).toValidNel(s"'$str' is not in valid format file:resource")
 }

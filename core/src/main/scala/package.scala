@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package dev.hnaderi
+package dev.hnaderi.portainer
 
-package object portainer {
-  type ServerName = String
-  type LoginToken = String
-  type APIToken = String
-  type Username = String
-  type Password = String
-  type CommandLine[F[_]] = CLICommand => F[Unit]
+import java.util.Base64
+
+package object models {
+  implicit class StringEncodingOps(val str: String) extends AnyVal {
+    private[models] def base64: String =
+      Base64.getEncoder().encodeToString(str.getBytes())
+  }
 }

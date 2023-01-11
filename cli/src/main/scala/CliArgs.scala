@@ -67,7 +67,7 @@ object CliArgs {
     val listing =
       Command("list", "list all stacks")(Opts.unit.as(Requests.Stack.Listing()))
     val get = Command("get", "get stack by id")(
-      Opts.argument[String]("stack id").map(Requests.Stack.Get(_))
+      Opts.argument[Int]("stack id").map(Requests.Stack.Get(_))
     )
 
     Command("stack", "stack related actions")(
@@ -77,18 +77,24 @@ object CliArgs {
 
   private val endpoints: Command[PortainerRequest[?]] =
     Command("endpoints", "endpoint related actions")(
-      Opts(Requests.Endpoint.Get())
+      Opts.argument[String]("id").map(Requests.Endpoint.Get(_))
     )
+
+  private val serverConfig: Opts[ServerConfig] = (Opts
+    .option[String]("server", "use registered server name", "s")
+    .map(ServerConfig.Session(_))
+    .orElse(
+      (
+        Opts.option[URI]("address", "portainer http path to api", "H"),
+        optionOrEnv[String]("token", "t", "PORTAINER_TOKEN", "API token")
+      ).mapN(ServerConfig.Inline(_, _))
+    ))
 
   private val deploy: Command[CLICommand.Deploy] = {
     implicit val inlineEnvArg: Argument[InlineEnv] =
-      Argument.from("key=value")(s =>
-        InlineEnv(s).toValidNel(s"'$s' is not in valid format key=value")
-      )
+      Argument.from("key=value")(InlineEnv.validate)
     implicit val fileMappingArg: Argument[FileMapping] =
-      Argument.from("path-to-file:resource-name")(s =>
-        FileMapping(s).toValidNel(s"'$s' is not in valid format file:resource")
-      )
+      Argument.from("path-to-file:resource-name")(FileMapping.validate)
 
     val immutableHelp =
       """NOTE that as configs and secrets in docker are immutable and might be already in use, your resource name must not exist!
@@ -97,6 +103,7 @@ Ensure using versioning or date in names to always get a new name.
 
     Command("deploy", "deploys a stack and all its dependencies") {
       (
+        serverConfig,
         Opts.option[Path]("compose-file", "compose file", "f"),
         Opts.options[String]("endpoint", "endpoint tag(s)", "t"),
         Opts.option[String]("stack", "stack name", "S"),
@@ -108,33 +115,24 @@ Ensure using versioning or date in names to always get a new name.
         Opts
           .options[FileMapping]("secret", s"secret file: $immutableHelp")
           .orNone
-      ).mapN(CLICommand.Deploy(_, _, _, _, _, _, _))
+      ).mapN(CLICommand.Deploy(_, _, _, _, _, _, _, _))
     }
   }
 
   private val destroy: Command[CLICommand.Destroy] = {
     Command("destroy", "destroy stacks, configs, secrets") {
       (
+        serverConfig,
         Opts.options[String]("endpoint", "endpoint tag(s)", "t"),
         Opts.options[String]("stack", "stack name", "S"),
         Opts.options[String]("config", "config file").orNone,
         Opts.options[String]("secret", "secret file").orNone
-      ).mapN(CLICommand.Destroy(_, _, _, _))
+      ).mapN(CLICommand.Destroy(_, _, _, _, _))
     }
   }
 
   private val isPrint =
     Opts.flag("print", "just print curl and exit", "P").orFalse
-
-  private val serverConfig: Opts[ServerConfig] = (Opts
-    .option[String]("server", "use registered server name", "s")
-    .map(ServerConfig.Session(_))
-    .orElse(
-      (
-        Opts.option[URI]("address", "portainer http path to api", "H"),
-        optionOrEnv[String]("token", "t", "PORTAINER_TOKEN", "API token")
-      ).mapN(ServerConfig.Inline(_, _))
-    ))
 
   private val internal =
     Opts.subcommands(login, logout)

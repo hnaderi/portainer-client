@@ -23,15 +23,12 @@ import io.circe.syntax._
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
-import scala.jdk.CollectionConverters._
 
 final case class LocalSessionManager(path: String) extends SessionManager[IO] {
   private val portainerRc = Paths.get(path)
-  private val readSessionsFile = IO {
-    if (Files.exists(portainerRc))
-      Some(Files.readAllLines(portainerRc).asScala.mkString)
-    else None
-  }
+  private val readSessionsFile =
+    IO(Files.exists(portainerRc))
+      .ifM(Utils.readLines[IO](portainerRc).map(Some(_)), IO(None))
 
   def load: IO[Sessions] =
     readSessionsFile
