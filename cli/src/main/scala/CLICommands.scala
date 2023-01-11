@@ -49,7 +49,7 @@ sealed trait Playbook extends Serializable with Product
 object Playbook {
   final case class Deploy(
       compose: Path,
-      endpoint: NonEmptyList[String],
+      endpoint: EndpointSelector,
       stack: String,
       env: Option[Path] = None,
       inlineVars: Option[NonEmptyList[InlineEnv]] = None,
@@ -58,7 +58,7 @@ object Playbook {
   ) extends Playbook
 
   final case class Destroy(
-      endpoint: NonEmptyList[String],
+      endpoint: EndpointSelector,
       stacks: NonEmptyList[String],
       configs: Option[NonEmptyList[String]] = None,
       secrets: Option[NonEmptyList[String]] = None
@@ -85,4 +85,12 @@ object FileMapping {
   }
   def validate(str: String): ValidatedNel[String, FileMapping] =
     apply(str).toValidNel(s"'$str' is not in valid format file:resource")
+}
+
+sealed trait EndpointSelector extends Serializable with Product
+object EndpointSelector {
+  final case class ByName(value: String) extends EndpointSelector
+  final case class ById(value: Int) extends EndpointSelector
+  final case class ByTags(tags: NonEmptyList[String]) extends EndpointSelector
+  final case class ByTagIds(tagIds: NonEmptyList[Int]) extends EndpointSelector
 }

@@ -41,10 +41,14 @@ object Requests {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "endpoints" / id)()
     }
-    final case class Listing(tagIds: List[String])
-        extends PortainerRequestBase[List[Endpoint]] {
+    final case class Listing(
+        tagIds: List[Int] = Nil,
+        name: Option[String] = None
+    ) extends PortainerRequestBase[List[Endpoint]] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
-        client.get(_ / "endpoints" ++? ("tagIds" -> tagIds))()
+        client.get(
+          _ / "endpoints" ++? ("tagIds" -> tagIds) ++? ("name" -> name.toSeq)
+        )()
     }
   }
 
@@ -131,7 +135,7 @@ object Requests {
 
   object Config {
     final case class Create(
-        endpoint: String,
+        endpoint: Int,
         name: String,
         labels: Map[String, String],
         data: String
@@ -144,7 +148,7 @@ object Requests {
         )
     }
 
-    final case class Delete(endpoint: String, id: String)
+    final case class Delete(endpoint: Int, id: String)
         extends PortainerRequestRaw {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.send(
@@ -155,7 +159,7 @@ object Requests {
     }
 
     final case class Listing(
-        endpoint: String,
+        endpoint: Int,
         id: Option[String] = None,
         names: List[String] = Nil
     ) extends PortainerRequestBase[List[Config]] {
@@ -169,7 +173,7 @@ object Requests {
 
   object Secret {
     final case class Create(
-        endpoint: String,
+        endpoint: Int,
         name: String,
         labels: Map[String, String],
         data: String
@@ -182,7 +186,7 @@ object Requests {
         )
     }
 
-    final case class Delete(endpoint: String, id: String)
+    final case class Delete(endpoint: Int, id: String)
         extends PortainerRequestRaw {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.send(
@@ -193,7 +197,7 @@ object Requests {
     }
 
     final case class Listing(
-        endpoint: String,
+        endpoint: Int,
         id: Option[String] = None,
         names: List[String] = Nil
     ) extends PortainerRequestBase[List[Secret]] {
@@ -202,6 +206,13 @@ object Requests {
           _ / "endpoints" / endpoint / "docker" / "secrets"
         )("filters" -> filterFor(id, names))
 
+    }
+  }
+
+  object Tag {
+    case object Listing extends PortainerRequestBase[List[Tag]] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.get(_ / "tags")()
     }
   }
 

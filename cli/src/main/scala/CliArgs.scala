@@ -81,7 +81,7 @@ object CliArgs {
     )
 
   private val serverConfig: Opts[ServerConfig] = (Opts
-    .option[String]("server", "use registered server name", "s")
+    .option[String]("server", "use registered server name", "s", "session name")
     .map(ServerConfig.Session(_))
     .orElse(
       (
@@ -89,6 +89,25 @@ object CliArgs {
         optionOrEnv[String]("token", "t", "PORTAINER_TOKEN", "API token")
       ).mapN(ServerConfig.Inline(_, _))
     ))
+
+  private val endpointSelector = Opts
+    .option[String]("endpoint", "endpoint name")
+    .map(EndpointSelector.ByName(_))
+    .orElse(
+      Opts
+        .option[Int]("endpoint-id", "endpoint id")
+        .map(EndpointSelector.ById(_))
+    )
+    .orElse(
+      Opts
+        .options[String]("tag", "endpoint tag", "t")
+        .map(EndpointSelector.ByTags(_))
+    )
+    .orElse(
+      Opts
+        .options[Int]("tag-id", "endpoint tag", "T")
+        .map(EndpointSelector.ByTagIds(_))
+    )
 
   private val deploy: Command[Playbook.Deploy] = {
     implicit val inlineEnvArg: Argument[InlineEnv] =
@@ -104,7 +123,7 @@ Ensure using versioning or date in names to always get a new name.
     Command("deploy", "deploys a stack and all its dependencies") {
       (
         Opts.option[Path]("compose-file", "compose file", "f"),
-        Opts.options[String]("endpoint", "endpoint tag(s)", "t"),
+        endpointSelector,
         Opts.option[String]("stack", "stack name", "S"),
         Opts.option[Path]("env-file", "environment file", "E").orNone,
         Opts.options[InlineEnv]("env", "environment variable", "e").orNone,
@@ -121,7 +140,7 @@ Ensure using versioning or date in names to always get a new name.
   private val destroy: Command[Playbook.Destroy] =
     Command("destroy", "destroy stacks, configs, secrets") {
       (
-        Opts.options[String]("endpoint", "endpoint tag(s)", "t"),
+        endpointSelector,
         Opts.options[String]("stack", "stack name", "S"),
         Opts.options[String]("config", "config file").orNone,
         Opts.options[String]("secret", "secret file").orNone

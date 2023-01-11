@@ -131,3 +131,16 @@ object Secret {
       name <- c.downField("spec").downField("name").as[String]
     } yield Secret(id, name)
 }
+
+final case class Tag(id: String, name: String, endpoints: Set[Int])
+object Tag {
+  implicit val decoder: Decoder[Tag] = (c: HCursor) =>
+    for {
+      id <- c.downField("id").as[String]
+      name <- c.downField("Name").as[String]
+      endpoints <- c
+        .downField("Endpoints")
+        .as[Map[Int, Boolean]]
+        .map(_.keySet)
+    } yield Tag(id, name, endpoints)
+}

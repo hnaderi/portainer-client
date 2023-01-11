@@ -16,18 +16,53 @@
 
 package dev.hnaderi.portainer
 
-import cats.effect.kernel.Async
+import cats.effect._
 import cats.implicits._
+import dev.hnaderi.portainer.EndpointSelector.ById
+import dev.hnaderi.portainer.EndpointSelector.ByName
+import dev.hnaderi.portainer.EndpointSelector.ByTagIds
+import dev.hnaderi.portainer.EndpointSelector.ByTags
 import dev.hnaderi.portainer.Playbook.Deploy
 import dev.hnaderi.portainer.Playbook.Destroy
 
 object PlayBookRunner {
+  private def assertSelected[F[_]: Concurrent, T]: List[T] => F[T] = {
+    case head :: Nil => head.pure[F]
+    case _           => ???
+  }
+
+  private def getEndpointId[F[_]: Concurrent](
+      client: PortainerClient[F]
+  ): EndpointSelector => F[Int] = {
+    case ById(value) => value.pure[F]
+    case ByName(value) =>
+      Requests.Endpoint
+        .Listing(name = value.some)
+        .call(client)
+        .flatMap(assertSelected)
+        .map(_.id)
+    case ByTagIds(tagIds) =>
+      Requests.Endpoint
+        .Listing(tagIds = tagIds.toList)
+        .call(client)
+        .flatMap(assertSelected)
+        .map(_.id)
+    case ByTags(tags) =>
+      Requests.Tag.Listing
+        .call(client)
+        .map(
+          _.filter(t => tags.contains_(t.name))
+            .map(_.endpoints)
+            .reduce(_ intersect _)
+            .toList
+        )
+        .flatMap(assertSelected)
+  }
+
   def apply[F[_]](implicit F: Async[F]): PlayBookRunnerBuilder[F] = client => {
     case Deploy(compose, endpoint, stack, env, inlineVars, configs, secrets) =>
       for {
         stackFile <- Utils.readLines(compose)
-
-        ep = endpoint.head // TODO implement tag search
 
         envVars <- env
           .fold(F.pure(Map.empty[String, String]))(Utils.readEnvFile[F])
@@ -46,6 +81,7 @@ object PlayBookRunner {
 
         _ <- client.use(client =>
           for {
+            ep <- getEndpointId(client).apply(endpoint)
             _ <- configMaps.toList.traverse { case (name, content) =>
               Requests.Config
                 .Create(ep, name, Map.empty, content)
@@ -86,7 +122,7 @@ object PlayBookRunner {
         for {
           stacksL <- Requests.Stack.Listing().call(client)
 
-          ep = endpoint.head // TODO implement tag search
+          ep <- getEndpointId(client).apply(endpoint)
 
           _ <- stacksL
             .filter(s => stacks.contains_(s.name))
