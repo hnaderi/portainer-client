@@ -21,11 +21,11 @@ import io.circe.jawn.decode
 import io.circe.syntax._
 
 import java.nio.file.Files
-import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
+import java.nio.file.Path
 
-final case class LocalSessionManager(path: String) extends SessionManager[IO] {
-  private val portainerRc = Paths.get(path)
+final case class LocalSessionManager(portainerRc: Path)
+    extends SessionManager[IO] {
   private val readSessionsFile =
     IO(Files.exists(portainerRc))
       .ifM(Utils.readLines[IO](portainerRc).map(Some(_)), IO(None))

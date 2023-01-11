@@ -20,8 +20,20 @@ import cats.effect._
 import cats.implicits._
 import dev.hnaderi.readpassword
 
+import java.nio.file.Paths
+
 object Main extends Platform {
-  private val session = LocalSessionManager(".portainerrc")
+  private val portainerHome = sys.env.getOrElse("PORTAINER_HOME", "")
+  private val sessionFile = sys.env
+    .get("PORTAINER_SESSION")
+    .map(Paths.get(_))
+    .getOrElse(
+      Paths
+        .get(portainerHome)
+        .resolve(".portainer.json")
+    )
+
+  private val session = LocalSessionManager(sessionFile)
   private val terminal = Terminal(
     IO.blocking(readpassword.read("Enter password: "))
   )
