@@ -22,13 +22,36 @@ import com.monovore.decline._
 import java.net.URI
 
 object CliArgs {
+  private def optionOrEnv[A: Argument](
+      long: String,
+      short: String,
+      env: String,
+      help: String
+  ): Opts[A] =
+    Opts.option[A](long, help, short).orElse(Opts.env(env, help))
+
   private val login =
     Command("login", "login to server and adds it to sessions")(
       (
         Opts.option[String]("name", "server name to add", "n"),
-        Opts.option[URI]("address", "portainer http path to api", "H"),
-        Opts.option[String]("username", "username to login to server", "u"),
-        Opts.option[String]("password", "password to use for login", "p").orNone
+        optionOrEnv[URI](
+          "address",
+          "H",
+          "PORTAINER_HOST",
+          "portainer http path to api"
+        ),
+        optionOrEnv[String](
+          "username",
+          "u",
+          "PORTAINER_USERNAME",
+          "username to login to server"
+        ),
+        optionOrEnv[String](
+          "password",
+          "p",
+          "PORTAINER_PASSWORD",
+          "password to use for login"
+        ).orNone
       ).mapN(CLICommand.Login(_, _, _, _))
     )
 
@@ -65,7 +88,7 @@ object CliArgs {
     .orElse(
       (
         Opts.option[URI]("address", "portainer http path to api", "H"),
-        Opts.option[String]("token", "API token", "t")
+        optionOrEnv[String]("token", "t", "PORTAINER_TOKEN", "API token")
       ).mapN(ServerConfig.Inline(_, _))
     ))
 
