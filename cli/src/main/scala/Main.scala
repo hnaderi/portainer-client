@@ -26,7 +26,6 @@ object Main extends Platform {
     IO.blocking(readpassword.read("Enter password: "))
   )
 
-  import CLICommand._
   override def run(args: List[String]): IO[ExitCode] =
     CliArgs.pctl.parse(args) match {
       case Left(help) =>
@@ -36,18 +35,8 @@ object Main extends Platform {
             else ExitCode.Error
           }
       case Right(cmd) =>
-        val cli = CommandLineImpl(client, session, terminal)
-        cmd match {
-          case External(request, server, isPrint) =>
-            cli.raw(server, request, isPrint).as(ExitCode.Success)
-          case Login(server, address, username, password, isPrint) =>
-            cli
-              .login(server, address, username, password, isPrint)
-              .as(ExitCode.Success)
-          case Logout(server) => cli.logout(server).as(ExitCode.Success)
-          case _ =>
-            terminal.error("Not implemented yet!").as(ExitCode.Error)
-        }
+        val cli = CommandLine(client, session, terminal)
+        cli(cmd).as(ExitCode.Success)
     }
 
 }

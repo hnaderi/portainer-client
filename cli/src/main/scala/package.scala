@@ -29,4 +29,6 @@ package object portainer {
     def base64: String =
       Base64.getEncoder().encodeToString(str.getBytes())
   }
+
+  type CommandLine[F[_]] = CLICommand => F[Unit]
 }
