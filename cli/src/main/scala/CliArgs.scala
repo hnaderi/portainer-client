@@ -90,7 +90,7 @@ object CliArgs {
       ).mapN(ServerConfig.Inline(_, _))
     ))
 
-  private val deploy: Command[CLICommand.Deploy] = {
+  private val deploy: Command[Playbook.Deploy] = {
     implicit val inlineEnvArg: Argument[InlineEnv] =
       Argument.from("key=value")(InlineEnv.validate)
     implicit val fileMappingArg: Argument[FileMapping] =
@@ -103,7 +103,6 @@ Ensure using versioning or date in names to always get a new name.
 
     Command("deploy", "deploys a stack and all its dependencies") {
       (
-        serverConfig,
         Opts.option[Path]("compose-file", "compose file", "f"),
         Opts.options[String]("endpoint", "endpoint tag(s)", "t"),
         Opts.option[String]("stack", "stack name", "S"),
@@ -115,21 +114,22 @@ Ensure using versioning or date in names to always get a new name.
         Opts
           .options[FileMapping]("secret", s"secret file: $immutableHelp")
           .orNone
-      ).mapN(CLICommand.Deploy(_, _, _, _, _, _, _, _))
+      ).mapN(Playbook.Deploy(_, _, _, _, _, _, _))
     }
   }
 
-  private val destroy: Command[CLICommand.Destroy] = {
+  private val destroy: Command[Playbook.Destroy] =
     Command("destroy", "destroy stacks, configs, secrets") {
       (
-        serverConfig,
         Opts.options[String]("endpoint", "endpoint tag(s)", "t"),
         Opts.options[String]("stack", "stack name", "S"),
         Opts.options[String]("config", "config file").orNone,
         Opts.options[String]("secret", "secret file").orNone
-      ).mapN(CLICommand.Destroy(_, _, _, _, _))
+      ).mapN(Playbook.Destroy(_, _, _, _))
     }
-  }
+
+  private val playbooks = (serverConfig, Opts.subcommands(deploy, destroy))
+    .mapN(CLICommand.Play(_, _))
 
   private val isPrint =
     Opts.flag("print", "just print curl and exit", "P").orFalse
@@ -148,6 +148,6 @@ Ensure using versioning or date in names to always get a new name.
 Save human time by using this client to automate workflows in CI/CD or other pipelines.
 """
     )(
-      internal.orElse(external).orElse(Opts.subcommands(deploy, destroy))
+      internal.orElse(external).orElse(playbooks)
     )
 }

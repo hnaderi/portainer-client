@@ -16,6 +16,8 @@
 
 package dev.hnaderi
 
+import cats.effect.kernel.Resource
+
 package object portainer {
   type ServerName = String
   type LoginToken = String
@@ -23,4 +25,7 @@ package object portainer {
   type Username = String
   type Password = String
   type CommandLine[F[_]] = CLICommand => F[Unit]
+  type PlayBookRunner[F[_]] = Playbook => F[Unit]
+  type PlayBookRunnerBuilder[F[_]] =
+    Resource[F, PortainerClient[F]] => PlayBookRunner[F]
 }

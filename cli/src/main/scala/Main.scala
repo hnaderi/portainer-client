@@ -35,7 +35,7 @@ object Main extends Platform {
             else ExitCode.Error
           }
       case Right(cmd) =>
-        val cli = CommandLine(client, session, terminal)
+        val cli = CommandLine(client, session, PlayBookRunner[IO], terminal)
         cli(cmd).as(ExitCode.Success)
     }
 

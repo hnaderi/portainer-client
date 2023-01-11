@@ -31,6 +31,7 @@ object CommandLine {
   def apply[F[_]](
       client: Resource[F, Client[F]],
       sessions: SessionManager[F],
+      playbookRunner: PlayBookRunnerBuilder[F],
       console: Terminal[F]
   )(implicit F: Async[F]): CommandLine[F] = { cmd =>
     def toUri(address: URI) =
@@ -115,93 +116,7 @@ object CommandLine {
                 ) >> console.println("Logged in successfully!")
         } yield ()
 
-      case Deploy(
-            server,
-            compose,
-            endpoint,
-            stack,
-            env,
-            inlineVars,
-            configs,
-            secrets
-          ) =>
-        for {
-          stackFile <- Utils.readLines(compose)
-
-          ep = endpoint.head // TODO implement tag search
-
-          envVars <- env
-            .fold(F.pure(Map.empty[String, String]))(Utils.readEnvFile[F])
-            .map(
-              _ ++ inlineVars
-                .map(_.toList)
-                .getOrElse(Nil)
-                .map(v => (v.key, v.value))
-            )
-          configMaps <- configs.fold(F.pure(Map.empty[String, String]))(
-            Utils.readFileMaps[F]
-          )
-          secretMaps <- secrets.fold(F.pure(Map.empty[String, String]))(
-            Utils.readFileMaps[F]
-          )
-
-          _ <- getClient(server).use(client =>
-            for {
-              _ <- configMaps.toList.traverse { case (name, content) =>
-                Requests.Config
-                  .Create(ep, name, Map.empty, content)
-                  .call(client)
-              }
-              _ <- secretMaps.toList.traverse { case (name, content) =>
-                Requests.Secret
-                  .Create(ep, name, Map.empty, content)
-                  .call(client)
-              }
-
-              stacks <- Requests.Stack.Listing().call(client)
-
-              _ = stacks.find(_.name == stack) match {
-                case None =>
-                  Requests.Stack.Create(
-                    name = stack,
-                    env = envVars,
-                    compose = stackFile,
-                    swarmId = "",
-                    endpointId = ""
-                  )
-                case Some(stack) =>
-                  Requests.Stack.Update(
-                    id = stack.id,
-                    env = envVars,
-                    compose = stackFile,
-                    prune = true,
-                    endpointId = ""
-                  )
-              }
-
-            } yield ()
-          )
-        } yield ()
-
-      case Destroy(server, endpoint, stacks, configs, secrets) =>
-        getClient(server).use(client =>
-          for {
-            stacksL <- Requests.Stack.Listing().call(client)
-
-            ep = endpoint.head // TODO implement tag search
-
-            _ <- stacksL
-              .filter(s => stacks.contains_(s.name))
-              .map(s => Requests.Stack.Delete(s.id))
-              .traverse(_.call(client))
-            _ <- Requests.Config
-              .Listing(ep, names = configs.map(_.toList).getOrElse(Nil))
-              .call(client)
-            _ <- Requests.Secret
-              .Listing(ep, names = secrets.map(_.toList).getOrElse(Nil))
-              .call(client)
-          } yield ()
-        )
+      case Play(server, playbook) => playbookRunner(getClient(server))(playbook)
     }
 
   }

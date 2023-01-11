@@ -32,24 +32,8 @@ object CLICommand {
       print: Boolean = false
   ) extends CLICommand
 
-  final case class Deploy(
-      server: ServerConfig,
-      compose: Path,
-      endpoint: NonEmptyList[String],
-      stack: String,
-      env: Option[Path] = None,
-      inlineVars: Option[NonEmptyList[InlineEnv]] = None,
-      configs: Option[NonEmptyList[FileMapping]] = None,
-      secrets: Option[NonEmptyList[FileMapping]] = None
-  ) extends CLICommand
-
-  final case class Destroy(
-      server: ServerConfig,
-      endpoint: NonEmptyList[String],
-      stacks: NonEmptyList[String],
-      configs: Option[NonEmptyList[String]] = None,
-      secrets: Option[NonEmptyList[String]] = None
-  ) extends CLICommand
+  final case class Play(server: ServerConfig, playbook: Playbook)
+      extends CLICommand
 
   final case class Login(
       server: String,
@@ -59,6 +43,26 @@ object CLICommand {
       print: Boolean = false
   ) extends CLICommand
   final case class Logout(server: String) extends CLICommand
+}
+
+sealed trait Playbook extends Serializable with Product
+object Playbook {
+  final case class Deploy(
+      compose: Path,
+      endpoint: NonEmptyList[String],
+      stack: String,
+      env: Option[Path] = None,
+      inlineVars: Option[NonEmptyList[InlineEnv]] = None,
+      configs: Option[NonEmptyList[FileMapping]] = None,
+      secrets: Option[NonEmptyList[FileMapping]] = None
+  ) extends Playbook
+
+  final case class Destroy(
+      endpoint: NonEmptyList[String],
+      stacks: NonEmptyList[String],
+      configs: Option[NonEmptyList[String]] = None,
+      secrets: Option[NonEmptyList[String]] = None
+  ) extends Playbook
 }
 
 final case class InlineEnv(key: String, value: String)
