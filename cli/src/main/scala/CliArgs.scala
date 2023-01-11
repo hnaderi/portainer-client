@@ -144,7 +144,12 @@ Ensure using versioning or date in names to always get a new name.
       .mapN(CLICommand.External(_, _, _))
 
   val pctl: Command[CLICommand] =
-    Command("portainer", "portainer client")(
+    Command(
+      "portainer",
+      """Portainer client
+Save human time by using this client to automate workflows in CI/CD or other pipelines.
+"""
+    )(
       internal.orElse(external).orElse(Opts.subcommands(deploy, destroy))
     )
 }
