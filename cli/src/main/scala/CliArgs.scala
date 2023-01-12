@@ -75,10 +75,25 @@ object CliArgs {
     )
   }
 
-  private val endpoints: Command[PortainerRequest[?]] =
-    Command("endpoints", "endpoint related actions")(
-      Opts.argument[String]("id").map(Requests.Endpoint.Get(_))
+  private val endpoints: Command[PortainerRequest[?]] = {
+    val get = Command("get", "get endpoint by id")(
+      Opts.argument[Int]("id").map(Requests.Endpoint.Get(_))
     )
+    val listing = Command("list", "list endpoints")(
+      (
+        Opts
+          .options[Int]("tag-id", "endpoints with tag id")
+          .map(_.toList)
+          .orNone
+          .map(_.getOrElse(Nil)),
+        Opts.option[String]("name", "endpoints with name").orNone
+      ).mapN(Requests.Endpoint.Listing(_, _))
+    )
+
+    Command("endpoints", "endpoint related actions")(
+      Opts.subcommands(get, listing)
+    )
+  }
 
   private val serverConfig: Opts[ServerConfig] = (Opts
     .option[String]("server", "use registered server name", "s", "session name")

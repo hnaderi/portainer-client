@@ -37,8 +37,7 @@ trait PortainerClient[F[_]] {
       method: Method
   ): F[O]
 
-  final def get[O: Decoder](base: Uri => Uri)(queries: (String, String)*) =
-    send(base.andThen(_.withQueryParams(queries.toMap)), Method.GET)
+  final def get[O: Decoder](base: Uri => Uri) = send(base, Method.GET)
 }
 
 object PortainerClient {

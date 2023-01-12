@@ -40,7 +40,7 @@ object Requests {
   object Endpoint {
     final case class Get(id: Int) extends PortainerRequestBase[Endpoint] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
-        client.get(_ / "endpoints" / id)()
+        client.get(_ / "endpoints" / id)
     }
     final case class Listing(
         tagIds: List[Int] = Nil,
@@ -48,8 +48,8 @@ object Requests {
     ) extends PortainerRequestBase[List[Endpoint]] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(
-          _ / "endpoints" ++? ("tagIds" -> tagIds) ++? ("name" -> name.toSeq)
-        )()
+          _ / "endpoints" ++? ("tagIds" -> tagIds) +?? ("name" -> name)
+        )
     }
   }
 
@@ -58,8 +58,7 @@ object Requests {
         id: Int
     ) extends PortainerRequestBase[Stack] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
-        client.get(_ / "stacks" / id)(
-        )
+        client.get(_ / "stacks" / id)
     }
     final case class Listing(
         endpointId: Option[Int] = None,
@@ -71,7 +70,7 @@ object Requests {
             "SwarmID" -> swarmId.asJson,
             "EndpointID" -> endpointId.asJson
           ))
-        )()
+        )
     }
 
     final case class Create(
@@ -117,7 +116,7 @@ object Requests {
 
     final case class GetFile(id: String) extends PortainerRequestBase[Json] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
-        client.get(_ / "stacks" / id / "file")()
+        client.get(_ / "stacks" / id / "file")
     }
 
     final case class Start(id: String) extends PortainerRequestBase[Unit] {
@@ -172,8 +171,10 @@ object Requests {
     ) extends PortainerRequestBase[List[Config]] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(
-          _ / "endpoints" / endpoint / "docker" / "configs"
-        )("filters" -> filterFor(id, names))
+          _ / "endpoints" / endpoint / "docker" / "configs" +? (
+            "filters" -> filterFor(id, names)
+          )
+        )
 
     }
   }
@@ -210,8 +211,10 @@ object Requests {
     ) extends PortainerRequestBase[List[Secret]] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(
-          _ / "endpoints" / endpoint / "docker" / "secrets"
-        )("filters" -> filterFor(id, names))
+          _ / "endpoints" / endpoint / "docker" / "secrets" +? (
+            "filters" -> filterFor(id, names)
+          )
+        )
 
     }
   }
@@ -219,7 +222,7 @@ object Requests {
   object Tag {
     case object Listing extends PortainerRequestBase[List[Tag]] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
-        client.get(_ / "tags")()
+        client.get(_ / "tags")
     }
   }
 
@@ -227,7 +230,7 @@ object Requests {
     final case class Info(endpoint: Int)
         extends PortainerRequestBase[SwarmInfo] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
-        client.get(_ / "endpoints" / endpoint / "docker" / "info")()
+        client.get(_ / "endpoints" / endpoint / "docker" / "info")
     }
   }
 
