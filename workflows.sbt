@@ -24,10 +24,11 @@ ThisBuild / githubWorkflowBuildPostamble ++= Seq(
   WorkflowStep.Run(
     List(
       "mkdir -p dist",
-      "cp cli/.native/target/scala-2.13/portainer-cli-out dist/portainer-${{ matrix.os }}"
+      "cp cli/.native/target/scala-2.13/portainer-cli-out dist/portainer-${{ matrix.os }}",
+      """[[ "${{ matrix.os }}" =~ "windows" ]] && (ls dist | xargs -I {} mv dist/{} dist/{}.exe) || echo """
     ),
-    id = Some("rename_artifact"),
-    name = Some("Renaming artifacts"),
+    id = Some("prepare_artifact"),
+    name = Some("prepare artifacts"),
     cond =
       Some(" startsWith(matrix.scala, '2') && matrix.project == 'rootNative' ")
   ),
@@ -40,5 +41,35 @@ ThisBuild / githubWorkflowBuildPostamble ++= Seq(
     ),
     cond =
       Some(" startsWith(matrix.scala, '2') && matrix.project == 'rootNative' ")
+  )
+)
+
+ThisBuild / githubWorkflowPublish ++= (ThisBuild / githubWorkflowOSes).value
+  .map(os =>
+    WorkflowStep.Use(
+      UseRef.Public("actions", "download-artifact", "v3"),
+      name = Some(s"Download client for ${os}"),
+      cond = Some("startsWith(github.ref, 'refs/tags/v')"),
+      params = Map("name" -> s"client-${os}", "path" -> "dist")
+    )
+  ) ++ Seq(
+  WorkflowStep.Use(
+    UseRef.Public("actions", "upload-artifact", "v3"),
+    name = Some("Upload clients"),
+    params = Map(
+      "name" -> "all-clients",
+      "path" -> "dist/*"
+    )
+  ),
+  WorkflowStep.Use(
+    UseRef.Public("svenstaro", "upload-release-action", "v2"),
+    name = Some("Draft a github release"),
+    cond = Some("startsWith(github.ref, 'refs/tags/v')"),
+    params = Map(
+      "file" -> "dist/*",
+      "overwrite" -> "true",
+      "prerelease" -> "true",
+      "file_glob" -> "true"
+    )
   )
 )
