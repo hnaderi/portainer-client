@@ -54,9 +54,8 @@ object CommandLine {
                   PortainerClient(_, http, PortainerCredential.Login(token))
                 )
               case None =>
-                // TODO better experience
                 F.raiseError[PortainerClient[F]](
-                  new Exception("Unknown server")
+                  CLIError.UnknownServerSession(name)
                 )
             }
         }
@@ -75,9 +74,8 @@ object CommandLine {
                 PortainerClient.printer(_, PortainerCredential.Login(token))
               )
             case None =>
-              // TODO better experience
               F.raiseError(
-                new Exception("Unknown server")
+                CLIError.UnknownServerSession(name)
               )
           }
       }

@@ -26,41 +26,48 @@ import dev.hnaderi.portainer.Playbook.Deploy
 import dev.hnaderi.portainer.Playbook.Destroy
 
 object PlayBookRunner {
-  private def assertSelected[F[_]: Concurrent, T]: List[T] => F[T] = {
-    case head :: Nil => head.pure[F]
-    case _           => ???
-  }
 
   private def getEndpointId[F[_]: Concurrent](
       client: PortainerClient[F]
-  ): EndpointSelector => F[Int] = {
-    case ById(value) => value.pure[F]
-    case ByName(value) =>
-      Requests.Endpoint
-        .Listing(name = value.some)
-        .call(client)
-        .flatMap(assertSelected)
-        .map(_.id)
-    case ByTagIds(tagIds) =>
-      Requests.Endpoint
-        .Listing(tagIds = tagIds.toList)
-        .call(client)
-        .flatMap(assertSelected)
-        .map(_.id)
-    case ByTags(tags) =>
-      Requests.Tag.Listing
-        .call(client)
-        .map(
-          _.filter(t => tags.contains_(t.name))
-            .map(_.endpoints)
-            .reduce(_ intersect _)
-            .toList
-        )
-        .flatMap(assertSelected)
+  ): EndpointSelector => F[Int] = selector => {
+
+    def assertSelected[T]: List[T] => F[T] = {
+      case head :: Nil => head.pure[F]
+      case selected =>
+        CLIError
+          .InvalidEndpointSelector(selector, selected.size)
+          .raiseError[F, T]
+    }
+
+    selector match {
+      case ById(value) => value.pure[F]
+      case ByName(value) =>
+        Requests.Endpoint
+          .Listing(name = value.some)
+          .call(client)
+          .flatMap(assertSelected)
+          .map(_.id)
+      case ByTagIds(tagIds) =>
+        Requests.Endpoint
+          .Listing(tagIds = tagIds.toList)
+          .call(client)
+          .flatMap(assertSelected)
+          .map(_.id)
+      case ByTags(tags) =>
+        Requests.Tag.Listing
+          .call(client)
+          .map(
+            _.filter(t => tags.contains_(t.name))
+              .map(_.endpoints)
+              .reduce(_ intersect _)
+              .toList
+          )
+          .flatMap(assertSelected)
+    }
   }
 
   def apply[F[_]](implicit F: Async[F]): PlayBookRunnerBuilder[F] = client => {
-    case Deploy(compose, endpoint, stack, env, inlineVars, configs, secrets) =>
+    case Deploy(compose, selector, stack, env, inlineVars, configs, secrets) =>
       for {
         stackFile <- Utils.readLines(compose)
 
@@ -81,7 +88,9 @@ object PlayBookRunner {
 
         _ <- client.use(client =>
           for {
-            ep <- getEndpointId(client).apply(endpoint)
+            ep <- getEndpointId(client).apply(selector)
+            swarm <- Requests.Swarm.Info(ep).call(client)
+
             _ <- configMaps.toList.traverse { case (name, content) =>
               Requests.Config
                 .Create(ep, name, Map.empty, content)
@@ -101,8 +110,8 @@ object PlayBookRunner {
                   name = stack,
                   env = envVars,
                   compose = stackFile,
-                  swarmId = "",
-                  endpointId = ""
+                  swarmId = swarm.swarmId,
+                  endpointId = ep
                 )
               case Some(stack) =>
                 Requests.Stack.Update(
@@ -110,29 +119,31 @@ object PlayBookRunner {
                   env = envVars,
                   compose = stackFile,
                   prune = true,
-                  endpointId = ""
+                  endpointId = ep
                 )
             }
 
           } yield ()
         )
       } yield ()
-    case Destroy(endpoint, stacks, configs, secrets) =>
+    case Destroy(selector, stacks, configs, secrets) =>
       client.use(client =>
         for {
-          stacksL <- Requests.Stack.Listing().call(client)
+          endpoint <- getEndpointId(client).apply(selector)
 
-          ep <- getEndpointId(client).apply(endpoint)
+          stacksL <- Requests.Stack
+            .Listing(endpointId = Some(endpoint))
+            .call(client)
 
           _ <- stacksL
             .filter(s => stacks.contains_(s.name))
             .map(s => Requests.Stack.Delete(s.id))
             .traverse(_.call(client))
           _ <- Requests.Config
-            .Listing(ep, names = configs.map(_.toList).getOrElse(Nil))
+            .Listing(endpoint, names = configs.map(_.toList).getOrElse(Nil))
             .call(client)
           _ <- Requests.Secret
-            .Listing(ep, names = secrets.map(_.toList).getOrElse(Nil))
+            .Listing(endpoint, names = secrets.map(_.toList).getOrElse(Nil))
             .call(client)
         } yield ()
       )

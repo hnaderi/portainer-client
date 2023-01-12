@@ -144,3 +144,13 @@ object Tag {
         .map(_.keySet)
     } yield Tag(id, name, endpoints)
 }
+
+final case class SwarmInfo(swarmId: String) extends AnyVal
+object SwarmInfo {
+  implicit val decoder: Decoder[SwarmInfo] = (c: HCursor) =>
+    c.downField("Swarm")
+      .downField("Cluster")
+      .downField("ID")
+      .as[String]
+      .map(SwarmInfo(_))
+}

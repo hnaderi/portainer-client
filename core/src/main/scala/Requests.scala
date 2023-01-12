@@ -16,6 +16,7 @@
 
 package dev.hnaderi.portainer
 
+import cats.implicits._
 import io.circe.Json
 import io.circe.syntax._
 import org.http4s.Method
@@ -37,7 +38,7 @@ object Requests {
   }
 
   object Endpoint {
-    final case class Get(id: String) extends PortainerRequestBase[Endpoint] {
+    final case class Get(id: Int) extends PortainerRequestBase[Endpoint] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "endpoints" / id)()
     }
@@ -54,17 +55,23 @@ object Requests {
 
   object Stack {
     final case class Get(
-        id: Int,
-        endpointId: Option[String] = None,
-        swarmId: Option[String] = None
+        id: Int
     ) extends PortainerRequestBase[Stack] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "stacks" / id)(
         )
     }
-    final case class Listing() extends PortainerRequestBase[List[Stack]] {
+    final case class Listing(
+        endpointId: Option[Int] = None,
+        swarmId: Option[String] = None
+    ) extends PortainerRequestBase[List[Stack]] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
-        client.get(_ / "stacks")()
+        client.get(
+          _ / "stacks" +? ("filters" -> filterForM(
+            "SwarmID" -> swarmId.asJson,
+            "EndpointID" -> endpointId.asJson
+          ))
+        )()
     }
 
     final case class Create(
@@ -72,7 +79,7 @@ object Requests {
         env: Map[String, String],
         compose: String,
         swarmId: String,
-        endpointId: String
+        endpointId: Int
     ) extends PortainerRequestBase[Stack] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.send(
@@ -89,7 +96,7 @@ object Requests {
         env: Map[String, String],
         compose: String,
         prune: Boolean,
-        endpointId: String
+        endpointId: Int
     ) extends PortainerRequestBase[List[Stack]] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.send(
@@ -123,15 +130,15 @@ object Requests {
     }
   }
 
-  private def filterFor(id: Option[String], names: List[String]) = Json
-    .obj(
-      "filters" -> Json.obj(
-        "id" -> id.asJson,
-        "names" -> names.asJson
-      )
-    )
+  private def filterForM(kvs: (String, Json)*) = Json
+    .obj(kvs: _*)
     .deepDropNullValues
     .noSpaces
+
+  private def filterFor(id: Option[String], names: List[String]) = filterForM(
+    "id" -> id.asJson,
+    "names" -> names.toNel.asJson
+  )
 
   object Config {
     final case class Create(
@@ -213,6 +220,14 @@ object Requests {
     case object Listing extends PortainerRequestBase[List[Tag]] {
       override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
         client.get(_ / "tags")()
+    }
+  }
+
+  object Swarm {
+    final case class Info(endpoint: Int)
+        extends PortainerRequestBase[SwarmInfo] {
+      override def callRaw[F[_]](client: PortainerClient[F]): F[Json] =
+        client.get(_ / "endpoints" / endpoint / "docker" / "info")()
     }
   }
 

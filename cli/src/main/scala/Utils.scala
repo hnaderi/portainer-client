@@ -34,7 +34,7 @@ private object Utils {
   def readEnvFile[F[_]: Async](path: Path): F[Map[String, String]] =
     readLined(path).flatMap(
       _.traverse(InlineEnv.validate).fold(
-        InvalidEnvFile(_).raiseError[F, Map[String, String]],
+        CLIError.InvalidEnvFile(_).raiseError[F, Map[String, String]],
         vars => Async[F].pure(vars.map(v => (v.key, v.value)).toMap)
       )
     )
@@ -45,10 +45,5 @@ private object Utils {
   def readFileMaps[F[_]: Async](
       fms: NonEmptyList[FileMapping]
   ): F[Map[String, String]] = fms.traverse(readFileMap(_)).map(_.toList.toMap)
-
-  final case class InvalidEnvFile(errors: NonEmptyList[String])
-      extends Exception(
-        s"Invalid env file!\n${errors.mkString_("\n")}"
-      )
 
 }
