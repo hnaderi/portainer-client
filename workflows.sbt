@@ -61,14 +61,13 @@ ThisBuild / githubWorkflowPublish :=
       )
     ),
     WorkflowStep.Use(
-      UseRef.Public("svenstaro", "upload-release-action", "v2"),
+      UseRef.Public("softprops", "action-gh-release", "v1"),
       name = Some("Draft a github release"),
       cond = Some("startsWith(github.ref, 'refs/tags/v')"),
       params = Map(
-        "file" -> "dist/*",
-        "overwrite" -> "true",
+        "files" -> "dist/*",
         "prerelease" -> "true",
-        "file_glob" -> "true"
+        "draft" -> "true"
       )
     ),
     WorkflowStep.Sbt(List("tlRelease"), name = Some("Publish"))

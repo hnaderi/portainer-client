@@ -329,12 +329,11 @@ jobs:
 
       - name: Draft a github release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: svenstaro/upload-release-action@v2
+        uses: softprops/action-gh-release@v1
         with:
-          file: dist/*
-          overwrite: true
+          files: dist/*
           prerelease: true
-          file_glob: true
+          draft: true
 
       - name: Publish
         run: sbt '++ ${{ matrix.scala }}' tlRelease
