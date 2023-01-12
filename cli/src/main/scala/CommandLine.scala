@@ -50,7 +50,7 @@ object CommandLine {
             sessions.get(name).flatMap {
               case Some(Session(address, token)) =>
                 toUri(address).map(
-                  PortainerClient(_, http, PortainerCredential.Login(token))
+                  PortainerClient(_, http, token.toCredential)
                 )
               case None =>
                 F.raiseError[PortainerClient[F]](
@@ -70,7 +70,7 @@ object CommandLine {
           sessions.get(name).flatMap {
             case Some(Session(address, token)) =>
               toUri(address).map(
-                PortainerClient.printer(_, PortainerCredential.Login(token))
+                PortainerClient.printer(_, token.toCredential)
               )
             case None =>
               F.raiseError(
@@ -94,24 +94,36 @@ object CommandLine {
         sessions.load.flatMap(s =>
           sessions.save(s.copy(servers = s.servers - server))
         )
-      case Login(server, address, username, password, print) =>
-        for {
-          pass <- password.fold(console.readPassword)(F.pure(_))
-          uri <- toUri(address)
-          req = Requests.Login(username, pass)
-          _ <-
-            if (print)
-              console.println(
-                req.callRaw(PortainerClient.printer(uri)).toString()
-              )
-            else
-              client
-                .map(PortainerClient(uri, _))
-                .use(req.call(_))
-                .flatMap(token =>
-                  sessions.add(server, Session(address, token.jwt))
-                ) >> console.println("Logged in successfully!")
-        } yield ()
+      case Login(server, address, credential) =>
+        toUri(address).flatMap(uri =>
+          credential match {
+            case LoginCredential.ByUserPass(username, password, print) =>
+              password
+                .fold(console.readPassword)(F.pure(_))
+                .map(Requests.Login(username, _))
+                .flatMap(req =>
+                  if (print)
+                    console.println(
+                      req.callRaw(PortainerClient.printer(uri)).toString()
+                    )
+                  else
+                    client
+                      .map(PortainerClient(uri, _))
+                      .use(req.call(_))
+                      .flatMap(token =>
+                        sessions.add(
+                          server,
+                          Session(address, SessionToken.UserPass(token.jwt))
+                        )
+                      ) >> console.println("Logged in successfully!")
+                )
+            case LoginCredential.ByAPIToken(value) =>
+              sessions.add(
+                server,
+                Session(address, SessionToken.Token(value))
+              ) >> console.println("Added server!")
+          }
+        )
 
       case Play(server, playbook) => playbookRunner(getClient(server))(playbook)
     }

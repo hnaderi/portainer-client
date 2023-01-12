@@ -34,8 +34,32 @@ final case class Sessions(
 
 final case class Session(
     address: URI,
-    token: LoginToken
+    token: SessionToken
 )
+
+sealed trait SessionToken extends Any {
+  def toCredential = this match {
+    case SessionToken.Token(value)    => PortainerCredential.Token(value)
+    case SessionToken.UserPass(value) => PortainerCredential.Login(value)
+  }
+}
+object SessionToken {
+  final case class UserPass(value: LoginToken) extends AnyVal with SessionToken
+  final case class Token(value: APIToken) extends AnyVal with SessionToken
+
+  implicit val encoder: Encoder[SessionToken] = Encoder.instance {
+    case UserPass(value) =>
+      Json.obj("type" -> "login".asJson, "value" -> value.asJson)
+    case Token(value) =>
+      Json.obj("type" -> "token".asJson, "value" -> value.asJson)
+  }
+  implicit val decoder: Decoder[SessionToken] = (c: HCursor) =>
+    c.downField("type").as[String].flatMap {
+      case "login" => c.downField("value").as[String].map(UserPass(_))
+      case "token" => c.downField("value").as[String].map(Token(_))
+      case _       => Decoder.failedWithMessage("object misses token type")(c)
+    }
+}
 
 object Session {
   implicit val encoder: Encoder[Session] =
@@ -45,6 +69,6 @@ object Session {
   implicit val decoder: Decoder[Session] = (c: HCursor) =>
     for {
       ad <- c.downField("address").as[URI]
-      tk <- c.downField("token").as[String]
+      tk <- c.downField("token").as[SessionToken]
     } yield Session(ad, tk)
 }

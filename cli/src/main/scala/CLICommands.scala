@@ -38,9 +38,7 @@ object CLICommand {
   final case class Login(
       server: String,
       address: URI,
-      username: String,
-      password: Option[String] = None,
-      print: Boolean = false
+      credential: LoginCredential
   ) extends CLICommand
   final case class Logout(server: String) extends CLICommand
 }
@@ -95,4 +93,14 @@ object EndpointSelector {
   final case class ById(value: Int) extends EndpointSelector
   final case class ByTags(tags: NonEmptyList[String]) extends EndpointSelector
   final case class ByTagIds(tagIds: NonEmptyList[Int]) extends EndpointSelector
+}
+
+sealed trait LoginCredential extends Serializable with Product
+object LoginCredential {
+  final case class ByUserPass(
+      username: Username,
+      password: Option[Password],
+      print: Boolean = false
+  ) extends LoginCredential
+  final case class ByAPIToken(value: APIToken) extends LoginCredential
 }
