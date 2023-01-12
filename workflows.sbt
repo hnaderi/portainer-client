@@ -28,13 +28,14 @@ ThisBuild / githubWorkflowBuildPostamble ++= Seq(
     id = Some("rename_artifact"),
     name = Some("Renaming artifacts"),
     cond =
-      Some(" startsWith(matrix.scala, '2') && matrix.project == 'rootNative' ")
+      Some(" startsWith(matrix.scala, '2') && matrix.project == 'rootNative' "),
+    env = Map("RELEASE" -> "")
   ),
   WorkflowStep.Use(
     UseRef.Public("actions", "upload-artifact", "v3"),
     name = Some("Upload native artifacts"),
     params = Map(
-      "name" -> "client-$${{ matrix.os }}",
+      "name" -> "client-${{ matrix.os }}",
       "path" -> "dist/*"
     ),
     cond =

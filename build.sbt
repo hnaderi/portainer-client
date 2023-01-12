@@ -117,8 +117,13 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
     libraryDependencies ++= Seq(
       "org.http4s" %%% "http4s-curl" % "0.1.1"
     ),
-    nativeConfig ~= {
-      _.withGC(GC.none) // .withLTO(LTO.thin).withMode(Mode.releaseFull)
+    nativeConfig ~= { old =>
+      val temp = old.withGC(GC.none)
+      if (sys.env.contains("RELEASE"))
+        temp
+          .withLTO(LTO.thin)
+          .withMode(Mode.releaseFast)
+      else temp
     }
   )
 

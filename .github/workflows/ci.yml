@@ -135,6 +135,8 @@ jobs:
       - name: Renaming artifacts
         id: rename_artifact
         if:  startsWith(matrix.scala, '2') && matrix.project == 'rootNative' 
+        env:
+          RELEASE: 
         shell: bash
         run: |
           mkdir -p dist
@@ -144,7 +146,7 @@ jobs:
         if:  startsWith(matrix.scala, '2') && matrix.project == 'rootNative' 
         uses: actions/upload-artifact@v3
         with:
-          name: client-$${{ matrix.os }}
+          name: client-${{ matrix.os }}
           path: dist/*
 
       - name: Make target directories
