@@ -34,7 +34,7 @@ object Main extends Platform {
     )
 
   private val session = LocalSessionManager(sessionFile)
-  private val terminal = Terminal(
+  private implicit val terminal = Terminal.from(
     IO.blocking(readpassword.read("Enter password: "))
   )
 
@@ -47,7 +47,7 @@ object Main extends Platform {
             else ExitCode.Error
           }
       case Right(cmd) =>
-        val cli = CommandLine(client, session, PlayBookRunner[IO], terminal)
+        val cli = CommandLine(client, session, PlayBookRunner[IO])
         cli(cmd).as(ExitCode.Success)
     }
 

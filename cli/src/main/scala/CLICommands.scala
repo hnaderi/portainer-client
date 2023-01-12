@@ -54,14 +54,16 @@ object Playbook {
       env: Option[Path] = None,
       inlineVars: Option[NonEmptyList[InlineEnv]] = None,
       configs: Option[NonEmptyList[FileMapping]] = None,
-      secrets: Option[NonEmptyList[FileMapping]] = None
+      secrets: Option[NonEmptyList[FileMapping]] = None,
+      confirmed: Boolean = false
   ) extends Playbook
 
   final case class Destroy(
       endpoint: EndpointSelector,
       stacks: NonEmptyList[String],
       configs: Option[NonEmptyList[String]] = None,
-      secrets: Option[NonEmptyList[String]] = None
+      secrets: Option[NonEmptyList[String]] = None,
+      confirmed: Boolean = false
   ) extends Playbook
 }
 

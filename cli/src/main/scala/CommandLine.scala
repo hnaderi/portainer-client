@@ -31,9 +31,8 @@ object CommandLine {
   def apply[F[_]](
       client: Resource[F, Client[F]],
       sessions: SessionManager[F],
-      playbookRunner: PlayBookRunnerBuilder[F],
-      console: Terminal[F]
-  )(implicit F: Async[F]): CommandLine[F] = { cmd =>
+      playbookRunner: PlayBookRunnerBuilder[F]
+  )(implicit F: Async[F], console: Terminal[F]): CommandLine[F] = { cmd =>
     def toUri(address: URI) =
       F.fromEither(Uri.fromString(address.toString()))
 

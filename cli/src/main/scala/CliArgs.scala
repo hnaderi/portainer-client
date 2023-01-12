@@ -124,6 +124,9 @@ object CliArgs {
         .map(EndpointSelector.ByTagIds(_))
     )
 
+  private val confirm =
+    Opts.flag("confirm", "Respond yes to all confirmations", "Y").orFalse
+
   private val deploy: Command[Playbook.Deploy] = {
     implicit val inlineEnvArg: Argument[InlineEnv] =
       Argument.from("key=value")(InlineEnv.validate)
@@ -147,8 +150,9 @@ Ensure using versioning or date in names to always get a new name.
           .orNone,
         Opts
           .options[FileMapping]("secret", s"secret file: $immutableHelp")
-          .orNone
-      ).mapN(Playbook.Deploy(_, _, _, _, _, _, _))
+          .orNone,
+        confirm
+      ).mapN(Playbook.Deploy(_, _, _, _, _, _, _, _))
     }
   }
 
@@ -158,8 +162,9 @@ Ensure using versioning or date in names to always get a new name.
         endpointSelector,
         Opts.options[String]("stack", "stack name", "S"),
         Opts.options[String]("config", "config file").orNone,
-        Opts.options[String]("secret", "secret file").orNone
-      ).mapN(Playbook.Destroy(_, _, _, _))
+        Opts.options[String]("secret", "secret file").orNone,
+        confirm
+      ).mapN(Playbook.Destroy(_, _, _, _, _))
     }
 
   private val playbooks = (serverConfig, Opts.subcommands(deploy, destroy))

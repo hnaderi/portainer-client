@@ -16,6 +16,8 @@
 
 package dev.hnaderi.portainer
 
+import cats.Monad
+import cats.data.NonEmptyList
 import cats.effect._
 import cats.implicits._
 import dev.hnaderi.portainer.EndpointSelector.ById
@@ -24,6 +26,8 @@ import dev.hnaderi.portainer.EndpointSelector.ByTagIds
 import dev.hnaderi.portainer.EndpointSelector.ByTags
 import dev.hnaderi.portainer.Playbook.Deploy
 import dev.hnaderi.portainer.Playbook.Destroy
+
+import java.nio.file.Path
 
 object PlayBookRunner {
 
@@ -66,45 +70,53 @@ object PlayBookRunner {
     }
   }
 
-  def apply[F[_]](implicit F: Async[F]): PlayBookRunnerBuilder[F] = client => {
-    case Deploy(compose, selector, stack, env, inlineVars, configs, secrets) =>
+  private def buildEnvMap[F[_]](
+      env: Option[Path],
+      inlineVars: Option[NonEmptyList[InlineEnv]]
+  )(implicit F: Async[F]) = env
+    .fold(F.pure(Map.empty[String, String]))(Utils.readEnvFile[F])
+    .map(
+      _ ++ inlineVars
+        .map(_.toList)
+        .getOrElse(Nil)
+        .map(v => (v.key, v.value))
+    )
+
+  private def buildDataMaps[F[_]](mappings: Option[NonEmptyList[FileMapping]])(
+      implicit F: Async[F]
+  ) =
+    mappings.fold(F.pure(Map.empty[String, String]))(Utils.readFileMaps[F])
+
+  private def confirm[F[_]](
+      byPass: Boolean
+  )(details: Seq[String])(implicit term: Terminal[F], F: Monad[F]) =
+    if (byPass) byPass.pure[F]
+    else term.confirm(s"${details.mkString("\n")}\n\nDo you want to proceed?")
+
+  def apply[F[_]: Async: Terminal]: PlayBookRunnerBuilder[F] = client => {
+    case Deploy(
+          compose,
+          selector,
+          stack,
+          env,
+          inlineVars,
+          configs,
+          secrets,
+          confirmed
+        ) =>
       for {
         stackFile <- Utils.readLines(compose)
-
-        envVars <- env
-          .fold(F.pure(Map.empty[String, String]))(Utils.readEnvFile[F])
-          .map(
-            _ ++ inlineVars
-              .map(_.toList)
-              .getOrElse(Nil)
-              .map(v => (v.key, v.value))
-          )
-        configMaps <- configs.fold(F.pure(Map.empty[String, String]))(
-          Utils.readFileMaps[F]
-        )
-        secretMaps <- secrets.fold(F.pure(Map.empty[String, String]))(
-          Utils.readFileMaps[F]
-        )
+        envVars <- buildEnvMap(env, inlineVars)
+        configMaps <- buildDataMaps(configs)
+        secretMaps <- buildDataMaps(secrets)
 
         _ <- client.use(client =>
           for {
             ep <- getEndpointId(client).apply(selector)
             swarm <- Requests.Swarm.Info(ep).call(client)
+            stacks <- Requests.Stack.Listing(endpointId = Some(ep)).call(client)
 
-            _ <- configMaps.toList.traverse { case (name, content) =>
-              Requests.Config
-                .Create(ep, name, Map.empty, content)
-                .call(client)
-            }
-            _ <- secretMaps.toList.traverse { case (name, content) =>
-              Requests.Secret
-                .Create(ep, name, Map.empty, content)
-                .call(client)
-            }
-
-            stacks <- Requests.Stack.Listing().call(client)
-
-            _ = stacks.find(_.name == stack) match {
+            (applyStack, isUpdate) = stacks.find(_.name == stack) match {
               case None =>
                 Requests.Stack.Create(
                   name = stack,
@@ -112,7 +124,7 @@ object PlayBookRunner {
                   compose = stackFile,
                   swarmId = swarm.swarmId,
                   endpointId = ep
-                )
+                ) -> false
               case Some(stack) =>
                 Requests.Stack.Update(
                   id = stack.id,
@@ -120,13 +132,39 @@ object PlayBookRunner {
                   compose = stackFile,
                   prune = true,
                   endpointId = ep
-                )
+                ) -> true
             }
+
+            proceed <- confirm(confirmed) {
+              s"stack $stack will be ${if (isUpdate) "updated" else "created"}" ::
+                configMaps.keys
+                  .map(c => s"config $c will be created")
+                  .toList :::
+                secretMaps.keys.map(s => s"secret $s will be created").toList
+            }
+
+            _ <-
+              if (proceed)
+                Terminal[F].println(s"applying stack ${stack}") >>
+                  applyStack.call(client) >>
+                  configMaps.toList.traverse { case (name, content) =>
+                    Terminal[F].println(s"creating config ${name}") >>
+                      Requests.Config
+                        .Create(ep, name, Map.empty, content)
+                        .call(client)
+                  } >>
+                  secretMaps.toList.traverse { case (name, content) =>
+                    Terminal[F].println(s"creating secret ${name}") >>
+                      Requests.Secret
+                        .Create(ep, name, Map.empty, content)
+                        .call(client)
+                  }
+              else Terminal[F].println("Discarded!")
 
           } yield ()
         )
       } yield ()
-    case Destroy(selector, stacks, configs, secrets) =>
+    case Destroy(selector, stacks, configs, secrets, confirmed) =>
       client.use(client =>
         for {
           endpoint <- getEndpointId(client).apply(selector)
@@ -135,16 +173,43 @@ object PlayBookRunner {
             .Listing(endpointId = Some(endpoint))
             .call(client)
 
-          _ <- stacksL
+          stacksToDelete = stacksL
             .filter(s => stacks.contains_(s.name))
-            .map(s => Requests.Stack.Delete(s.id))
-            .traverse(_.call(client))
-          _ <- Requests.Config
+          configsToDelete <- Requests.Config
             .Listing(endpoint, names = configs.map(_.toList).getOrElse(Nil))
             .call(client)
-          _ <- Requests.Secret
+          secretsToDelete <- Requests.Secret
             .Listing(endpoint, names = secrets.map(_.toList).getOrElse(Nil))
             .call(client)
+
+          proceed <- confirm(confirmed)(
+            stacksToDelete.map(s =>
+              s"stack [name: ${s.name}, id: ${s.id}] will be deleted"
+            ) :::
+              configsToDelete.map(c =>
+                s"config [name: ${c.name}, id: ${c.id}] will be deleted"
+              ) :::
+              secretsToDelete.map(s =>
+                s"secret [name: ${s.name}, id: ${s.id}] will be deleted"
+              )
+          )
+
+          _ <-
+            if (proceed)
+              stacksToDelete.traverse(s =>
+                Terminal[F].println(s"deleting stack ${s.id} ...") >>
+                  Requests.Stack.Delete(s.id).call(client)
+              ) >>
+                configsToDelete.traverse(c =>
+                  Terminal[F].println(s"deleting config ${c.id} ...") >>
+                    Requests.Config.Delete(endpoint, c.id).call(client)
+                ) >>
+                secretsToDelete.traverse(s =>
+                  Terminal[F].println(s"deleting secret ${s.id} ...") >>
+                    Requests.Secret.Delete(endpoint, s.id).call(client)
+                )
+            else Terminal[F].println("Discarded!")
+
         } yield ()
       )
   }
