@@ -18,6 +18,9 @@ ThisBuild / githubWorkflowOSes :=
 ThisBuild / githubWorkflowBuildMatrixExclusions +=
   MatrixExclude(Map("scala" -> Scala3, "os" -> "windows-2022")) // dottydoc bug
 
+//To help with rerunning failed steps
+ThisBuild / githubWorkflowBuildMatrixFailFast := Some(false)
+
 val vcpkgBaseDir = "C:/vcpkg/"
 ThisBuild / githubWorkflowBuildPreamble ++= Seq(
   WorkflowStep.Run(
@@ -42,12 +45,9 @@ ThisBuild / githubWorkflowBuildPostamble ~= {
 }
 
 ThisBuild / nativeConfig ~= { c =>
-  val osNameOpt = sys.props.get("os.name")
-  val isMacOs = osNameOpt.exists(_.toLowerCase().contains("mac"))
-  val isWindows = osNameOpt.exists(_.toLowerCase().contains("windows"))
-  if (isMacOs) { // brew-installed curl
+  if (BuildEnv.isMacOs) { // brew-installed curl
     c.withLinkingOptions(c.linkingOptions :+ "-L/usr/local/opt/curl/lib")
-  } else if (isWindows) { // vcpkg-installed curl
+  } else if (BuildEnv.isWindows) { // vcpkg-installed curl
     c.withCompileOptions(
       c.compileOptions :+ s"-I${vcpkgBaseDir}/installed/x64-windows/include/"
     ).withLinkingOptions(
@@ -120,7 +120,9 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
       val temp = old.withGC(GC.none)
       if (sys.env.contains("RELEASE"))
         temp
-          .withLTO(LTO.thin)
+          // NOTE https://github.com/scala-native/scala-native/issues/2779
+          // due to some linker problem on macos, LTO is disabled conditionally
+          .withLTO(if (BuildEnv.isMacOs) LTO.none else LTO.thin)
           .withMode(Mode.releaseFast)
       else temp
     }

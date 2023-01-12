@@ -24,8 +24,7 @@ ThisBuild / githubWorkflowBuildPostamble ++= Seq(
   WorkflowStep.Run(
     List(
       "mkdir -p dist",
-      "cp cli/.native/target/scala-2.13/portainer-cli-out dist/portainer-${{ matrix.os }}",
-      """[[ "${{ matrix.os }}" =~ "windows" ]] && (ls dist | xargs -I {} mv dist/{} dist/{}.exe) || echo """
+      "cp cli/.native/target/scala-2.13/portainer-cli-out dist/portainer-${{ matrix.os }}"
     ),
     id = Some("prepare_artifact"),
     name = Some("prepare artifacts"),

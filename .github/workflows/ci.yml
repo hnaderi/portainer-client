@@ -26,6 +26,7 @@ jobs:
   build:
     name: Build and Test
     strategy:
+      fail-fast: false
       matrix:
         os:
           - ubuntu-20.04
@@ -141,7 +142,6 @@ jobs:
         run: |
           mkdir -p dist
           cp cli/.native/target/scala-2.13/portainer-cli-out dist/portainer-${{ matrix.os }}
-          [[ "${{ matrix.os }}" =~ "windows" ]] && (ls dist | xargs -I {} mv dist/{} dist/{}.exe) || echo 
 
       - name: Upload native artifacts
         if:  startsWith(matrix.scala, '2') && matrix.project == 'rootNative' 
