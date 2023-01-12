@@ -43,8 +43,8 @@ ThisBuild / githubWorkflowBuildPostamble ++= Seq(
   )
 )
 
-ThisBuild / githubWorkflowPublish ++= (ThisBuild / githubWorkflowOSes).value
-  .map(os =>
+ThisBuild / githubWorkflowPublish :=
+  (ThisBuild / githubWorkflowOSes).value.map(os =>
     WorkflowStep.Use(
       UseRef.Public("actions", "download-artifact", "v3"),
       name = Some(s"Download client for ${os}"),
@@ -52,23 +52,24 @@ ThisBuild / githubWorkflowPublish ++= (ThisBuild / githubWorkflowOSes).value
       params = Map("name" -> s"client-${os}", "path" -> "dist")
     )
   ) ++ Seq(
-  WorkflowStep.Use(
-    UseRef.Public("actions", "upload-artifact", "v3"),
-    name = Some("Upload clients"),
-    params = Map(
-      "name" -> "all-clients",
-      "path" -> "dist/*"
-    )
-  ),
-  WorkflowStep.Use(
-    UseRef.Public("svenstaro", "upload-release-action", "v2"),
-    name = Some("Draft a github release"),
-    cond = Some("startsWith(github.ref, 'refs/tags/v')"),
-    params = Map(
-      "file" -> "dist/*",
-      "overwrite" -> "true",
-      "prerelease" -> "true",
-      "file_glob" -> "true"
-    )
+    WorkflowStep.Use(
+      UseRef.Public("actions", "upload-artifact", "v3"),
+      name = Some("Upload clients"),
+      params = Map(
+        "name" -> "all-clients",
+        "path" -> "dist/*"
+      )
+    ),
+    WorkflowStep.Use(
+      UseRef.Public("svenstaro", "upload-release-action", "v2"),
+      name = Some("Draft a github release"),
+      cond = Some("startsWith(github.ref, 'refs/tags/v')"),
+      params = Map(
+        "file" -> "dist/*",
+        "overwrite" -> "true",
+        "prerelease" -> "true",
+        "file_glob" -> "true"
+      )
+    ),
+    WorkflowStep.Sbt(List("tlRelease"), name = Some("Publish"))
   )
-)
