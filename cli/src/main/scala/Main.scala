@@ -34,7 +34,7 @@ object Main extends Platform {
     )
 
   private val session = LocalSessionManager(sessionFile)
-  private implicit val terminal = Terminal.from(
+  private implicit val terminal: Terminal[IO] = Terminal.from(
     IO.blocking(readpassword.read("Enter password: "))
   )
 

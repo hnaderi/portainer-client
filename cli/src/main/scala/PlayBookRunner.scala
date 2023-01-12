@@ -158,7 +158,7 @@ object PlayBookRunner {
                       Requests.Secret
                         .Create(ep, name, Map.empty, content)
                         .call(client)
-                  }
+                  }.void
               else Terminal[F].println("Discarded!")
 
           } yield ()
@@ -204,10 +204,12 @@ object PlayBookRunner {
                   Terminal[F].println(s"deleting config ${c.id} ...") >>
                     Requests.Config.Delete(endpoint, c.id).call(client)
                 ) >>
-                secretsToDelete.traverse(s =>
-                  Terminal[F].println(s"deleting secret ${s.id} ...") >>
-                    Requests.Secret.Delete(endpoint, s.id).call(client)
-                )
+                secretsToDelete
+                  .traverse(s =>
+                    Terminal[F].println(s"deleting secret ${s.id} ...") >>
+                      Requests.Secret.Delete(endpoint, s.id).call(client)
+                  )
+                  .void
             else Terminal[F].println("Discarded!")
 
         } yield ()
