@@ -18,7 +18,8 @@ ThisBuild / githubWorkflowGeneratedCI ~= {
 ThisBuild / githubWorkflowBuildPostamble ++= Seq(
   WorkflowStep.Sbt(
     List("cliNative/nativeLink"),
-    name = Some("Building native binaries")
+    name = Some("Building native binaries"),
+    env = Map("RELEASE" -> "")
   ),
   WorkflowStep.Run(
     List(
@@ -28,8 +29,7 @@ ThisBuild / githubWorkflowBuildPostamble ++= Seq(
     id = Some("rename_artifact"),
     name = Some("Renaming artifacts"),
     cond =
-      Some(" startsWith(matrix.scala, '2') && matrix.project == 'rootNative' "),
-    env = Map("RELEASE" -> "")
+      Some(" startsWith(matrix.scala, '2') && matrix.project == 'rootNative' ")
   ),
   WorkflowStep.Use(
     UseRef.Public("actions", "upload-artifact", "v3"),

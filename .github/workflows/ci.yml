@@ -129,14 +129,14 @@ jobs:
         run: sbt 'project ${{ matrix.project }}' '++ ${{ matrix.scala }}' doc
 
       - name: Building native binaries
+        env:
+          RELEASE: 
         shell: bash
         run: sbt 'project ${{ matrix.project }}' '++ ${{ matrix.scala }}' cliNative/nativeLink
 
       - name: Renaming artifacts
         id: rename_artifact
         if:  startsWith(matrix.scala, '2') && matrix.project == 'rootNative' 
-        env:
-          RELEASE: 
         shell: bash
         run: |
           mkdir -p dist
