@@ -10,7 +10,6 @@ ThisBuild / developers := List(
 )
 
 ThisBuild / tlSonatypeUseLegacyHost := false
-ThisBuild / tlSitePublishBranch := None //Some("main")
 
 // TODO: This section is a mindless copy paste from http4s-curl
 // which might need some tweaks?!
@@ -126,5 +125,3 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
       else temp
     }
   )
-
-lazy val docs = project.in(file("site")).enablePlugins(TypelevelSitePlugin)
