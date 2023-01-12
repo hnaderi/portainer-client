@@ -14,18 +14,13 @@
  * limitations under the License.
  */
 
-package dev.hnaderi
+package dev.hnaderi.portainer
 
-import cats.effect.kernel.Resource
+import java.util.Base64
 
-package object portainer {
-  type ServerName = String
-  type LoginToken = String
-  type APIToken = String
-  type Username = String
-  type Password = String
-  type CommandLine[F[_]] = CLICommand => F[Unit]
-  type PlayBookRunner[F[_]] = Playbook => F[Unit]
-  type PlayBookRunnerBuilder[F[_]] =
-    Resource[F, PortainerClient[F]] => PlayBookRunner[F]
+package object models {
+  implicit class StringEncodingOps(val str: String) extends AnyVal {
+    private[models] def base64: String =
+      Base64.getEncoder().encodeToString(str.getBytes())
+  }
 }

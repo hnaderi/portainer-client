@@ -14,18 +14,38 @@
  * limitations under the License.
  */
 
-package dev.hnaderi
+package dev.hnaderi.portainer
 
-import cats.effect.kernel.Resource
+import munit.FunSuite
 
-package object portainer {
-  type ServerName = String
-  type LoginToken = String
-  type APIToken = String
-  type Username = String
-  type Password = String
-  type CommandLine[F[_]] = CLICommand => F[Unit]
-  type PlayBookRunner[F[_]] = Playbook => F[Unit]
-  type PlayBookRunnerBuilder[F[_]] =
-    Resource[F, PortainerClient[F]] => PlayBookRunner[F]
+import java.nio.file.Paths
+
+class FileMappingSuite extends FunSuite {
+  test("Empty") {
+    assertEquals(
+      FileMapping(""),
+      None
+    )
+  }
+
+  test("Invalid") {
+    assertEquals(
+      FileMapping("file.txt=config"),
+      None
+    )
+  }
+
+  test("Valid") {
+    assertEquals(
+      FileMapping("file.txt:config"),
+      Some(FileMapping(Paths.get("file.txt"), "config"))
+    )
+  }
+
+  test("Trims input") {
+    assertEquals(
+      FileMapping(" file.txt : config "),
+      Some(FileMapping(Paths.get("file.txt"), "config"))
+    )
+  }
 }

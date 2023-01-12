@@ -16,7 +16,13 @@
 
 package dev.hnaderi.portainer
 
+import cats.data.NonEmptyList
+import cats.data.ValidatedNel
+import cats.implicits._
+
 import java.net.URI
+import java.nio.file.Path
+import java.nio.file.Paths
 
 sealed trait CLICommand extends Serializable with Product
 object CLICommand {
@@ -26,9 +32,8 @@ object CLICommand {
       print: Boolean = false
   ) extends CLICommand
 
-  final case class Deploy() extends CLICommand
-  final case class Destroy() extends CLICommand
-  final case class CleanUp() extends CLICommand
+  final case class Play(server: ServerConfig, playbook: Playbook)
+      extends CLICommand
 
   final case class Login(
       server: String,
@@ -38,4 +43,54 @@ object CLICommand {
       print: Boolean = false
   ) extends CLICommand
   final case class Logout(server: String) extends CLICommand
+}
+
+sealed trait Playbook extends Serializable with Product
+object Playbook {
+  final case class Deploy(
+      compose: Path,
+      endpoint: EndpointSelector,
+      stack: String,
+      env: Option[Path] = None,
+      inlineVars: Option[NonEmptyList[InlineEnv]] = None,
+      configs: Option[NonEmptyList[FileMapping]] = None,
+      secrets: Option[NonEmptyList[FileMapping]] = None
+  ) extends Playbook
+
+  final case class Destroy(
+      endpoint: EndpointSelector,
+      stacks: NonEmptyList[String],
+      configs: Option[NonEmptyList[String]] = None,
+      secrets: Option[NonEmptyList[String]] = None
+  ) extends Playbook
+}
+
+final case class InlineEnv(key: String, value: String)
+object InlineEnv {
+  private val pattern = "(.+)=(.+)".r
+  def apply(str: String): Option[InlineEnv] = str match {
+    case pattern(key, value) => Some(InlineEnv(key.trim, value))
+    case _                   => None
+  }
+  def validate(str: String): ValidatedNel[String, InlineEnv] =
+    apply(str).toValidNel(s"'$str' is not in valid format key=value")
+}
+final case class FileMapping(source: Path, name: String)
+object FileMapping {
+  private val pattern = "(.+):(.+)".r
+  def apply(str: String): Option[FileMapping] = str match {
+    case pattern(file, name) =>
+      Some(FileMapping(Paths.get(file.trim), name.trim))
+    case _ => None
+  }
+  def validate(str: String): ValidatedNel[String, FileMapping] =
+    apply(str).toValidNel(s"'$str' is not in valid format file:resource")
+}
+
+sealed trait EndpointSelector extends Serializable with Product
+object EndpointSelector {
+  final case class ByName(value: String) extends EndpointSelector
+  final case class ById(value: Int) extends EndpointSelector
+  final case class ByTags(tags: NonEmptyList[String]) extends EndpointSelector
+  final case class ByTagIds(tagIds: NonEmptyList[Int]) extends EndpointSelector
 }

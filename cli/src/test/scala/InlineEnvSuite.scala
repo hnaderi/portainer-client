@@ -14,18 +14,36 @@
  * limitations under the License.
  */
 
-package dev.hnaderi
+package dev.hnaderi.portainer
 
-import cats.effect.kernel.Resource
+import munit.FunSuite
 
-package object portainer {
-  type ServerName = String
-  type LoginToken = String
-  type APIToken = String
-  type Username = String
-  type Password = String
-  type CommandLine[F[_]] = CLICommand => F[Unit]
-  type PlayBookRunner[F[_]] = Playbook => F[Unit]
-  type PlayBookRunnerBuilder[F[_]] =
-    Resource[F, PortainerClient[F]] => PlayBookRunner[F]
+class InlineEnvSuite extends FunSuite {
+  test("Empty") {
+    assertEquals(
+      InlineEnv(""),
+      None
+    )
+  }
+
+  test("Invalid") {
+    assertEquals(
+      InlineEnv("key:value"),
+      None
+    )
+  }
+
+  test("Valid") {
+    assertEquals(
+      InlineEnv("key=value"),
+      Some(InlineEnv("key", "value"))
+    )
+  }
+
+  test("Trims key only") {
+    assertEquals(
+      InlineEnv(" key = value "),
+      Some(InlineEnv("key", " value "))
+    )
+  }
 }

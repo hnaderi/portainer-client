@@ -20,13 +20,24 @@ import cats.effect._
 import cats.implicits._
 import dev.hnaderi.readpassword
 
+import java.nio.file.Paths
+
 object Main extends Platform {
-  private val session = LocalSessionManager(".portainerrc")
+  private val portainerHome = sys.env.getOrElse("PORTAINER_HOME", "")
+  private val sessionFile = sys.env
+    .get("PORTAINER_SESSION")
+    .map(Paths.get(_))
+    .getOrElse(
+      Paths
+        .get(portainerHome)
+        .resolve(".portainer.json")
+    )
+
+  private val session = LocalSessionManager(sessionFile)
   private val terminal = Terminal(
     IO.blocking(readpassword.read("Enter password: "))
   )
 
-  import CLICommand._
   override def run(args: List[String]): IO[ExitCode] =
     CliArgs.pctl.parse(args) match {
       case Left(help) =>
@@ -36,18 +47,8 @@ object Main extends Platform {
             else ExitCode.Error
           }
       case Right(cmd) =>
-        val cli = CommandLineImpl(client, session, terminal)
-        cmd match {
-          case External(request, server, isPrint) =>
-            cli.raw(server, request, isPrint).as(ExitCode.Success)
-          case Login(server, address, username, password, isPrint) =>
-            cli
-              .login(server, address, username, password, isPrint)
-              .as(ExitCode.Success)
-          case Logout(server) => cli.logout(server).as(ExitCode.Success)
-          case _ =>
-            terminal.error("Not implemented yet!").as(ExitCode.Error)
-        }
+        val cli = CommandLine(client, session, PlayBookRunner[IO], terminal)
+        cli(cmd).as(ExitCode.Success)
     }
 
 }

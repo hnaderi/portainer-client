@@ -16,26 +16,106 @@
 
 package dev.hnaderi.portainer
 
+import cats.effect._
+import cats.implicits._
+import dev.hnaderi.portainer.ServerConfig.Inline
+import io.circe.Json
+import org.http4s.Uri
+import org.http4s.client.Client
+
 import java.net.URI
 
-trait CommandLine[F[_]] {
-  def login(
-      server: ServerName,
-      address: URI,
-      username: Username,
-      password: Option[Password] = None,
-      print: Boolean = false
-  ): F[Unit]
+import CLICommand._
 
-  def logout(server: ServerName): F[Unit]
+object CommandLine {
+  def apply[F[_]](
+      client: Resource[F, Client[F]],
+      sessions: SessionManager[F],
+      playbookRunner: PlayBookRunnerBuilder[F],
+      console: Terminal[F]
+  )(implicit F: Async[F]): CommandLine[F] = { cmd =>
+    def toUri(address: URI) =
+      F.fromEither(Uri.fromString(address.toString()))
 
-  def raw(
-      server: ServerConfig,
-      request: PortainerRequest[?],
-      print: Boolean = false
-  ): F[Unit]
+    def printResult(o: Json) =
+      console.println(o.spaces2)
 
-  def deploy(): F[Unit]
-  def destroy(): F[Unit]
-  def cleanup(): F[Unit]
+    def getClient(server: ServerConfig): Resource[F, PortainerClient[F]] =
+      client.evalMap(http =>
+        server match {
+          case Inline(address, token) =>
+            toUri(address).map(
+              PortainerClient(_, http, PortainerCredential.Token(token))
+            )
+          case ServerConfig.Session(name) =>
+            sessions.get(name).flatMap {
+              case Some(Session(address, token)) =>
+                toUri(address).map(
+                  PortainerClient(_, http, PortainerCredential.Login(token))
+                )
+              case None =>
+                F.raiseError[PortainerClient[F]](
+                  CLIError.UnknownServerSession(name)
+                )
+            }
+        }
+      )
+
+    def getPrinter(server: ServerConfig): F[PortainerClient[Printed[F, *]]] =
+      server match {
+        case Inline(address, token) =>
+          toUri(address).map(
+            PortainerClient.printer(_, PortainerCredential.Token(token))
+          )
+        case ServerConfig.Session(name) =>
+          sessions.get(name).flatMap {
+            case Some(Session(address, token)) =>
+              toUri(address).map(
+                PortainerClient.printer(_, PortainerCredential.Login(token))
+              )
+            case None =>
+              F.raiseError(
+                CLIError.UnknownServerSession(name)
+              )
+          }
+      }
+
+    def handle(
+        server: ServerConfig,
+        isPrint: Boolean,
+        req: PortainerRequest[?]
+    ): F[Unit] =
+      if (isPrint)
+        getPrinter(server).map(req.callRaw).flatMap(console.println(_))
+      else getClient(server).use(req.callRaw).flatMap(printResult)
+
+    cmd match {
+      case External(request, server, print) => handle(server, print, request)
+      case Logout(server) =>
+        sessions.load.flatMap(s =>
+          sessions.save(s.copy(servers = s.servers - server))
+        )
+      case Login(server, address, username, password, print) =>
+        for {
+          pass <- password.fold(console.readPassword)(F.pure(_))
+          uri <- toUri(address)
+          req = Requests.Login(username, pass)
+          _ <-
+            if (print)
+              console.println(
+                req.callRaw(PortainerClient.printer(uri)).toString()
+              )
+            else
+              client
+                .map(PortainerClient(uri, _))
+                .use(req.call(_))
+                .flatMap(token =>
+                  sessions.add(server, Session(address, token.jwt))
+                ) >> console.println("Logged in successfully!")
+        } yield ()
+
+      case Play(server, playbook) => playbookRunner(getClient(server))(playbook)
+    }
+
+  }
 }
