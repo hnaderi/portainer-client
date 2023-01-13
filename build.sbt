@@ -64,8 +64,8 @@ ThisBuild / envVars ++= {
 }
 /////
 
-val Scala213 = "2.13.9"
-val Scala3 = "3.2.0"
+val Scala213 = "2.13.10"
+val Scala3 = "3.2.1"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion := Scala213
 
