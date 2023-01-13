@@ -125,5 +125,6 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
           .withLTO(if (BuildEnv.isMacOs) LTO.none else LTO.thin)
           .withMode(Mode.releaseFast)
       else temp
-    }
+    },
+    nativeLinkingOptions += "-static"
   )
