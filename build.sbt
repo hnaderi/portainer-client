@@ -118,7 +118,7 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
     ),
     nativeConfig ~= { old =>
       val temp = old.withGC(GC.none)
-      if (sys.env.contains("RELEASE"))
+      if (sys.env.contains("RELEASE") || true)
         temp
           // NOTE https://github.com/scala-native/scala-native/issues/2779
           // due to some linker problem on macos, LTO is disabled conditionally
@@ -126,5 +126,8 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
           .withMode(Mode.releaseFast)
       else temp
     },
-    nativeLinkingOptions += "-static"
-  )
+    nativeLinkingOptions ++= Seq(
+      "-static",
+      "-v",
+      "-s", "-w"
+    )

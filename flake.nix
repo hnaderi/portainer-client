@@ -12,6 +12,9 @@
           inherit system;
           overlays = [ typelevel-nix.overlay ];
         };
+        curl = (pkgs.curlFull.override { gssSupport = false; }).overrideAttrs
+          (old: { dontDisableStatic = true; });
+
       in {
         devShell = pkgs.devshell.mkShell {
           imports = [ typelevel-nix.typelevelShell ];
@@ -21,7 +24,12 @@
             nodejs.enable = true;
             native = {
               enable = true;
-              libraries = [ pkgs.curl ];
+              libraries = [
+                curl # pkgs.glibc.static
+                pkgs.zlib.static
+                pkgs.upx
+                pkgs.musl
+              ];
             };
           };
         };
