@@ -91,6 +91,8 @@ lazy val core = crossProject(JVMPlatform, JSPlatform, NativePlatform)
       "org.http4s" %%% "http4s-circe" % http4sVersion,
       "org.typelevel" %%% "munit-cats-effect" % munitCEVersion % Test
     )
+  ).nativeSettings(
+    nativeConfig ~= {_.withBuildTarget(BuildTarget.libraryDynamic)}
   )
 
 lazy val cli = crossProject(JVMPlatform, NativePlatform)
@@ -109,25 +111,26 @@ lazy val cli = crossProject(JVMPlatform, NativePlatform)
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      "org.http4s" %%% "http4s-ember-client" % http4sVersion
+      "org.http4s" %% "http4s-jdk-http-client" % "0.8.0"
     )
   )
   .nativeSettings(
     libraryDependencies ++= Seq(
-      "org.http4s" %%% "http4s-curl" % "0.1.1"
+      "org.http4s" %%% "http4s-curl" % "0.2.0"
     ),
     nativeConfig ~= { old =>
       val temp = old.withGC(GC.none)
-      if (sys.env.contains("RELEASE") || true)
+      if (sys.env.contains("RELEASE"))
         temp
           // NOTE https://github.com/scala-native/scala-native/issues/2779
           // due to some linker problem on macos, LTO is disabled conditionally
           .withLTO(if (BuildEnv.isMacOs) LTO.none else LTO.thin)
-          .withMode(Mode.releaseFast)
+          .withMode(Mode.releaseFast)//.withTargetTriple("x86_64-apple-macosx10.14.0")
       else temp
     },
     nativeLinkingOptions ++= Seq(
-      "-static",
-      "-v",
-      "-s", "-w"
+      "-s"
+    ),
+    nativeCompileOptions ++= Seq(
     )
+  ).enablePlugins(GraalVMNativeImagePlugin)

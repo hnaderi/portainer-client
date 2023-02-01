@@ -20,15 +20,13 @@
           imports = [ typelevel-nix.typelevelShell ];
           name = "portainer-cli";
           typelevelShell = {
-            jdk.package = pkgs.jdk8;
+            jdk.package = pkgs.jdk17;
             nodejs.enable = true;
             native = {
               enable = true;
               libraries = [
-                curl # pkgs.glibc.static
-                pkgs.zlib.static
+                curl
                 pkgs.upx
-                pkgs.musl
               ];
             };
           };

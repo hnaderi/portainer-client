@@ -20,9 +20,9 @@ import cats.effect.IO
 import cats.effect.IOApp
 import cats.effect.Resource
 import org.http4s.client.Client
-import org.http4s.ember.client.EmberClientBuilder
+import org.http4s.jdkhttpclient.JdkHttpClient
 
 abstract class Platform extends IOApp {
   protected def client: Resource[IO, Client[IO]] =
-    EmberClientBuilder.default[IO].build
+    Resource.eval(JdkHttpClient.simple[IO])
 }
